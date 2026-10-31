@@ -126,7 +126,7 @@ Justificativa: preferência declarada do operador por TS; um runtime só elimina
 
 ## 3. Modelo de dados
 
-**Dinheiro é inteiro em centavos (`*Cents: number`). Nunca float.** Moeda padrão BRL. Datas armazenadas em ISO UTC; exibição em `America/Sao_Paulo`.
+**Dinheiro é inteiro em centavos (`*Cents: number`). Nunca float.** Moeda padrão BRL. Datas armazenadas como epoch ms UTC (coluna `integer` `timestamp_ms`); serialização em ISO na borda externa; exibição em `America/Sao_Paulo`.
 
 ### 3.1 Tabelas
 
