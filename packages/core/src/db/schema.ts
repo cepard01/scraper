@@ -11,7 +11,7 @@ export const searchMonitors = sqliteTable('search_monitor', {
   query: text('query').notNull(),
   category: text('category').$type<Category | null>(),
   params: text('params', { mode: 'json' }).$type<MonitorParams>().notNull().default(sql`'{}'`),
-  intervalMinutes: integer('intervalMinutes').notNull().default(30),
+  intervalMinutes: integer('interval_minutes').notNull().default(30),
   active: integer('active', { mode: 'boolean' }).notNull().default(true),
   lastRunAt: ts('last_run_at'),
   lastYield: integer('last_yield').notNull().default(0),

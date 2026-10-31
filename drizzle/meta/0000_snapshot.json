@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "8a2feb79-4662-482a-a205-e33de08d6b62",
+  "id": "1fe64203-a2bc-400a-b696-94f37bbc0b29",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "comparable_ref": {
@@ -733,8 +733,8 @@
           "autoincrement": false,
           "default": "'{}'"
         },
-        "intervalMinutes": {
-          "name": "intervalMinutes",
+        "interval_minutes": {
+          "name": "interval_minutes",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,

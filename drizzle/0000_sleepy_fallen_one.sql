@@ -105,7 +105,7 @@ CREATE TABLE `search_monitor` (
 	`query` text NOT NULL,
 	`category` text,
 	`params` text DEFAULT '{}' NOT NULL,
-	`intervalMinutes` integer DEFAULT 30 NOT NULL,
+	`interval_minutes` integer DEFAULT 30 NOT NULL,
 	`active` integer DEFAULT true NOT NULL,
 	`last_run_at` integer,
 	`last_yield` integer DEFAULT 0 NOT NULL,
