@@ -94,12 +94,16 @@ export interface Valuation {
   computedAt: Date;
 }
 
-export interface ScoreBreakdown {
+// `type`, não `interface`: opportunities.breakdown é $type<Record<string, number>>
+// (Task 3) e insertOpportunity escreve m.breakdown direto — uma interface não ganha
+// índice implícito e o TypeScript recusa. O cast no repositório empurraria a conta
+// para scoreOpportunity (Task 14), o produtor real do valor.
+export type ScoreBreakdown = {
   profitFactor: number;
   liquidityFactor: number;
   confidenceFactor: number;
   freshnessFactor: number;
-}
+};
 
 export interface OpportunityMath {
   askingCents: Cents;
