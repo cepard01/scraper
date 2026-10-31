@@ -143,7 +143,7 @@ listing          id, source, externalId, url, monitorId, fingerprint,
 
 pricePoint       id, listingId, askingCents, observedAt            -- série temporal por anúncio
 
-fingerprint      id, key(brand|model|variant|conditionGrade|category), category,
+fingerprint      id, key(category|brand|model|variant|conditionGrade), category,
                  label, brand, model, variant, conditionGrade
 
 valuation        id, fingerprint, sampleSize, medianCents, p25Cents, p75Cents,
@@ -212,7 +212,7 @@ Pipeline determinística, **antes** de qualquer IA:
 3. Classificador de categoria por dicionário + regex: celular, notebook, console, TV, bicicleta, autopeça, outro.
 4. Extração de atributos por categoria. Celular: marca (Apple/Samsung/Xiaomi/Motorola/…), modelo, capacidade (64/128/256/512GB), cor opcional, `desbloqueado` vs operadora (Vivo/Claro/TIM), estado (lacrado / novo / usado-bom / marcas / defeito). Bicicleta: marca, aro, quadro, grupo de transmissão. Auto: marca, peça, código OEM quando presente, compatibilidade.
 5. `conditionGrade` normalizado em `A` (novo/lacrado), `B` (usado bom), `C` (marcas/funciona), `D` (defeito/peça).
-6. `fingerprint = brand|model|variant|conditionGrade|category`.
+6. `fingerprint = category|brand|model|variant|conditionGrade`. Categoria abre a chave de propósito: `key` é o que se lê na tabela `fingerprint` a olho nu e no `group by`, e ordenar por categoria agrupa o inventário do mesmo jeito que o índice composto `(category, brand, model)`. A ordem é opaca para o cálculo — o que importa é que seja uma só em todo o sistema. Atributo ausente entra como `?` (`celular|?|?|128gb|B`), nunca como vazio, para `a||b` e `a|b` não colidirem.
 
 **Quando o parse determinístico falha**, o item entra em fila de `normalize.product` na IA (em lote, ver §6). Item sem fingerprint **não** é valorado nem alertado — vira `unmatched` com contagem visível no painel, para você saber quantos anúncios o parser está deixando passar.
 
