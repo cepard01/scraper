@@ -11,5 +11,7 @@ data/
 !.env.example
 .claude/
 .visualizations/
+.worktrees/
+.superpowers/
 *.log
 .DS_Store
