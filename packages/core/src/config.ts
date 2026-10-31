@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
-export class ConfigError extends Error {}
+export class ConfigError extends Error {
+  override readonly name = 'ConfigError';
+}
 
 const EnvSchema = z.object({
   DATABASE_URL: z.string().min(1),
@@ -25,6 +27,9 @@ export interface Config {
   tz: string;
 }
 
+// emptyToNull e blankToUndefined cobrem bordas diferentes: o primeiro é o contrato de
+// segredo (ausente ou vazio => null, e os consumidores decidem se isso desliga a fonte);
+// o segundo existe só para o .default() do zod ver undefined. Nenhum substitui o outro.
 const emptyToNull = (v: string | undefined): string | null => (v && v.length > 0 ? v : null);
 
 // `MELI_UNIT=` vazio no .env chega como '', e zod só aplica .default() em undefined.
@@ -36,7 +41,11 @@ export function parseSqlitePath(databaseUrl: string): string {
     const scheme = /^([a-z][a-z0-9+.-]*):\/\//i.exec(databaseUrl)?.[1] ?? 'sem esquema';
     throw new ConfigError(`DATABASE_URL precisa começar com sqlite:// nesta fase (esquema recebido: "${scheme}"). Postgres chega na migração para VPS.`);
   }
-  return databaseUrl.slice('sqlite://'.length);
+  const path = databaseUrl.slice('sqlite://'.length);
+  if (path.length === 0) {
+    throw new ConfigError('DATABASE_URL precisa de um caminho depois de sqlite:// (ex.: sqlite://./data/brique.db).');
+  }
+  return path;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {

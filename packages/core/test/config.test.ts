@@ -40,6 +40,19 @@ describe('loadConfig', () => {
       msg = (e as Error).message;
     }
     expect(msg).toContain('postgres');
+    expect(msg).toContain('DATABASE_URL');
     expect(msg).not.toContain('senha');
+  });
+
+  it('falha em sqlite:// sem caminho, nomeando DATABASE_URL', () => {
+    let err: unknown;
+    try {
+      loadConfig({ DATABASE_URL: 'sqlite://' });
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeInstanceOf(ConfigError);
+    expect((err as Error).name).toBe('ConfigError');
+    expect((err as Error).message).toContain('DATABASE_URL');
   });
 });
