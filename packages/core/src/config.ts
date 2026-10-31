@@ -27,15 +27,20 @@ export interface Config {
 
 const emptyToNull = (v: string | undefined): string | null => (v && v.length > 0 ? v : null);
 
+// `MELI_UNIT=` vazio no .env chega como '', e zod só aplica .default() em undefined.
+const blankToUndefined = (env: NodeJS.ProcessEnv): Record<string, string | undefined> =>
+  Object.fromEntries(Object.entries(env).map(([k, v]) => [k, v === '' ? undefined : v]));
+
 export function parseSqlitePath(databaseUrl: string): string {
   if (!databaseUrl.startsWith('sqlite://')) {
-    throw new ConfigError(`DATABASE_URL precisa começar com sqlite:// nesta fase (recebeu "${databaseUrl}"). Postgres chega na migração para VPS.`);
+    const scheme = /^([a-z][a-z0-9+.-]*):\/\//i.exec(databaseUrl)?.[1] ?? 'sem esquema';
+    throw new ConfigError(`DATABASE_URL precisa começar com sqlite:// nesta fase (esquema recebido: "${scheme}"). Postgres chega na migração para VPS.`);
   }
   return databaseUrl.slice('sqlite://'.length);
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  const parsed = EnvSchema.safeParse(env);
+  const parsed = EnvSchema.safeParse(blankToUndefined(env));
   if (!parsed.success) {
     const names = parsed.error.issues.map((i) => (i.path[0] ?? '?') as string).join(', ');
     throw new ConfigError(`config inválida, faltam/erradas: ${names}`);

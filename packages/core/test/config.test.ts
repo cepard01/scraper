@@ -24,4 +24,22 @@ describe('loadConfig', () => {
     const cfg = loadConfig({ ...base, MELI_ACCESS_TOKEN: '' });
     expect(cfg.meliToken).toBeNull();
   });
+
+  it('string vazia cai no default documentado, não em ""', () => {
+    const cfg = loadConfig({ ...base, MELI_UNIT: '', TZ_DISPLAY: '', NTFY_BASE_URL: '' });
+    expect(cfg.meliUnit).toBe('MLB');
+    expect(cfg.tz).toBe('America/Sao_Paulo');
+    expect(cfg.ntfy.baseUrl).toBe('https://ntfy.sh');
+  });
+
+  it('não vaza credencial de DATABASE_URL na mensagem de erro', () => {
+    let msg = '';
+    try {
+      loadConfig({ DATABASE_URL: 'postgres://usuario:senha@host/db' });
+    } catch (e) {
+      msg = (e as Error).message;
+    }
+    expect(msg).toContain('postgres');
+    expect(msg).not.toContain('senha');
+  });
 });
