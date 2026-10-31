@@ -30,4 +30,9 @@ describe('scheduler repos', () => {
     expect(row.rejected.gratis).toBe(1);
     expect(row.unchanged).toBe(6);
   });
+
+  it('recusa cadência abaixo de 15 minutos', () => {
+    expect(() => createMonitor(db, { label: 'agressivo', source: 'olx', query: 'iphone 12', category: 'celular', params: {}, intervalMinutes: 5 })).toThrow(/15/);
+    expect(() => createMonitor(db, { label: 'no piso', source: 'olx', query: 'iphone 12', category: 'celular', params: {}, intervalMinutes: 15 })).not.toThrow();
+  });
 });

@@ -1,4 +1,4 @@
-import { and, eq, gte, isNull, ne } from 'drizzle-orm';
+import { and, eq, gte, inArray, isNull, ne } from 'drizzle-orm';
 import type { Db } from '../client';
 import { fingerprints, listings, pricePoints } from '../schema';
 import type { Grade, ListingInput, ListingStatus, SourceId } from '../../types';
@@ -55,6 +55,12 @@ export function upsertFromSource(db: Db, input: ListingInput, opts: UpsertOpts):
   // que ele carrega é de um mercado que já andou, e o pipeline precisa reavaliá-lo.
   // O firstSeenAt fica intacto de propósito, para a liquidez ver a idade real do anúncio.
   const transition: UpsertResult['transition'] = wasGone ? 'new' : priceChanged ? 'repriced' : 'unchanged';
+  // §3.1: um item só muda de status por passo explícito da pipeline ou por ação sua.
+  // shortlisted/ignored/bought são sobrevivos à passada — 'unchanged' é o que o
+  // pipeline lê em `transition` para encerrar o item, não o que se pinta na coluna.
+  const lifecycle: ListingStatus | null =
+    existing.status === 'shortlisted' || existing.status === 'ignored' || existing.status === 'bought'
+      ? existing.status : null;
   db.update(listings).set({
     url: input.url,
     title: input.title,
@@ -67,10 +73,12 @@ export function upsertFromSource(db: Db, input: ListingInput, opts: UpsertOpts):
     sellerRef: input.sellerRef ?? existing.sellerRef,
     publishedAt: input.publishedAt ?? existing.publishedAt,
     lastSeenAt: opts.seenAt,
-    status: transition,
+    status: lifecycle ?? (transition as ListingStatus),
     monitorId: opts.monitorId ?? existing.monitorId,
     fingerprintId: opts.fingerprintId ?? existing.fingerprintId,
     grade: opts.grade ?? existing.grade,
+    parserVersion: opts.parserVersion,
+    rawPayload: input as unknown,
   }).where(eq(listings.id, existing.id)).run();
 
   if (priceChanged) {
@@ -87,10 +95,11 @@ export function setFingerprint(db: Db, listingId: number, fingerprintId: number 
   db.update(listings).set({ fingerprintId, grade }).where(eq(listings.id, listingId)).run();
 }
 
-export function markGone(db: Db, source: SourceId, seenExternalIds: string[], now: Date): number {
+export function markGone(db: Db, source: SourceId, seenExternalIds: string[], now: Date, monitorId?: number): number {
+  const scoped = monitorId === undefined ? undefined : eq(listings.monitorId, monitorId);
   const active = db.select({ externalId: listings.externalId, id: listings.id })
     .from(listings)
-    .where(and(eq(listings.source, source), ne(listings.status, 'gone'), ne(listings.status, 'bought')))
+    .where(and(eq(listings.source, source), scoped, ne(listings.status, 'gone'), ne(listings.status, 'bought')))
     .all();
   const seen = new Set(seenExternalIds);
   const missing = active.filter((r) => !seen.has(r.externalId));
@@ -111,25 +120,36 @@ export function findComparables(
   opts: { windowDays: number; variantAgnostic: boolean; now: Date; excludeListingId?: number },
 ): ComparableRow[] {
   const since = new Date(opts.now.getTime() - opts.windowDays * 86_400_000);
-  const cols = db.select({ listing: listings, fp: fingerprints })
-    .from(listings)
-    .innerJoin(fingerprints, eq(fingerprints.id, listings.fingerprintId))
-    .where(and(gte(listings.lastSeenAt, since), isNull(listings.dupeOf)))
-    .all();
-
-  const anchor = cols.find((c) => c.fp.id === fingerprintId)?.fp;
+  const anchor = db.select().from(fingerprints).where(eq(fingerprints.id, fingerprintId)).get();
   if (!anchor) return [];
 
-  const matched = cols.filter((c) => {
-    if (c.fp.id === fingerprintId) return true;
-    if (!opts.variantAgnostic) return false;
-    return c.fp.category === anchor.category && c.fp.brand === anchor.brand && c.fp.model === anchor.model;
-  });
+  const fpIds = [anchor.id];
+  // 'celular'|null|null não é uma família: dois fingerprints sem marca e sem modelo
+  // "combinam" por `null === null` e a mediana passaria a misturar produtos alheios
+  // (§4: variante errada produz margem fantasma). Só há pooling com a âncora preenchida.
+  if (opts.variantAgnostic && anchor.brand !== null && anchor.model !== null) {
+    const siblings = db.select({ id: fingerprints.id }).from(fingerprints)
+      .where(and(
+        eq(fingerprints.category, anchor.category),
+        eq(fingerprints.brand, anchor.brand),
+        eq(fingerprints.model, anchor.model),
+      )).all();
+    fpIds.push(...siblings.map((s) => s.id));
+  }
 
-  return matched
-    .filter((c) => c.listing.status !== 'bought')
-    .filter((c) => c.listing.id !== opts.excludeListingId)
-    .map((c) => ({ listingId: c.listing.id, askingCents: c.listing.askingCents }));
+  const rows = db.select({ id: listings.id, askingCents: listings.askingCents, status: listings.status })
+    .from(listings)
+    .where(and(
+      inArray(listings.fingerprintId, fpIds),
+      gte(listings.lastSeenAt, since),
+      isNull(listings.dupeOf),
+    ))
+    .all();
+
+  return rows
+    .filter((r) => r.status !== 'bought')
+    .filter((r) => r.id !== opts.excludeListingId)
+    .map((r) => ({ listingId: r.id, askingCents: r.askingCents }));
 }
 
 export function attachDupe(db: Db, listingId: number, dupeOfId: number): void {

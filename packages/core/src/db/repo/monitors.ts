@@ -20,6 +20,11 @@ export function touchRun(db: Db, monitorId: number, at: Date, yieldCount: number
 }
 
 export function createMonitor(db: Db, m: Pick<SearchMonitor, 'label' | 'source' | 'query' | 'category' | 'params' | 'intervalMinutes'>): number {
+  // §8.4: cadência abaixo de 15 min é risco de bloqueio de IP, não detalhe de tuning.
+  // createMonitor é o único caminho de escrita de monitor, então o piso mora aqui.
+  if (m.intervalMinutes < 15) {
+    throw new Error(`monitor "${m.label}" com intervalMinutes=${m.intervalMinutes}; mínimo 15`);
+  }
   const now = new Date();
   return db.insert(searchMonitors)
     .values({ ...m, active: true, createdAt: now, updatedAt: now })
