@@ -39,18 +39,20 @@ describe('db client', () => {
     expect(pragmas).toEqual({ journal_mode: 'wal', busy_timeout: 5000, foreign_keys: 1 });
   });
 
-  it('seed de settings é idempotente e fiel', () => {
+  it('seed é idempotente, fiel, e nunca sobrescreve ajuste do operador', () => {
     const { db } = openDb(':memory:');
     migrateDb(db);
     seedSettings(db, DEFAULT_SETTINGS);
-    const first = db.all<{ key: string; value: string; updated_at: number }>(
-      sql`select key, value, updated_at from setting order by key`);
+    db.run(sql`update setting set value = '0.9' where key = 'delta'`);
+    const rows = sql`select key, value, updated_at from setting order by key`;
+    const first = db.all<{ key: string; value: string; updated_at: number }>(rows);
     seedSettings(db, DEFAULT_SETTINGS);
-    const second = db.all<{ key: string; value: string; updated_at: number }>(
-      sql`select key, value, updated_at from setting order by key`);
+    const second = db.all<{ key: string; value: string; updated_at: number }>(rows);
     expect(first).toHaveLength(Object.keys(DEFAULT_SETTINGS).length);
     expect(second).toEqual(first);
+    expect(second.find((r) => r.key === 'delta')?.value).toBe('0.9');
     for (const row of first) {
+      if (row.key === 'delta') continue;
       expect(row.value).toBe(JSON.stringify(DEFAULT_SETTINGS[row.key as keyof Settings]));
     }
   });
