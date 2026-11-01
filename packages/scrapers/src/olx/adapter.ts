@@ -50,9 +50,8 @@ export function createOlxAdapter(deps: OlxAdapterDeps): SourceAdapter {
 
     async fetchOne(externalId: string) {
       const res = await deps.http(`${HOST}/anuncio/${externalId}`);
-      const ads = extract(res.text);
-      const ad = ads.find((a) => a.externalId === externalId) ?? ads[0];
-      if (!ad) throw new Error(`olx: anuncio ${externalId} nao parseado (status ${res.status})`);
+      const ad = extract(res.text).find((a) => a.externalId === externalId);
+      if (!ad) throw new Error(`olx: anuncio ${externalId} nao esta no corpo (status ${res.status}) — pagina viva que nao traz o proprio anuncio no blob e achado de contrato (fetchOne so recebe id), nao do parser`);
       return { source: 'olx' as const, externalId: ad.externalId, url: ad.url, fetchedAt: new Date(), payload: ad };
     },
 

@@ -24,8 +24,10 @@ console.log('rejeicoes', rej.slice(0, 5));
 // fetchOne so recebe o externalId: se a URL montada em adapter.ts nao servir, esta linha e a unica que descobre antes do Task 16
 if (ok.length > 0) {
   try {
-    const um = await adapter.fetchOne(ok[0]!.externalId);
-    console.log('fetchOne ok', ok[0]!.externalId, '->', um.url);
+    const pedido = ok[0]!.externalId;
+    const um = await adapter.fetchOne(pedido);
+    if (um.externalId !== pedido) throw new Error('devolveu outro anuncio (' + um.externalId + ')');
+    console.log('fetchOne ok', pedido, '->', um.url);
   } catch (e) {
     console.log('fetchOne FALHOU', ok[0]!.externalId, (e as Error).message);
   }

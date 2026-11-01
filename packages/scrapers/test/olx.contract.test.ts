@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { parseNextData, findAds, toAd, parseCardHtml } from '../src/olx/extract';
 import { createOlxAdapter, isOlxAd } from '../src/olx/adapter';
 import { isRejected } from '../src/contract';
-import { buildSearchUrl } from '../src/olx/url';
+import { buildSearchUrl, MAX_PAGES } from '../src/olx/url';
 import type { SearchMonitor } from '@brique/core/types';
 
 const blob = JSON.parse(readFileSync('tests/fixtures/olx/search-iphone-12.json', 'utf8'));
@@ -48,6 +48,7 @@ describe('findAds', () => {
     expect(toAd({ id: '12', title: 'B', price: { value: 1050, formatted: 'R$ 1.050' } })?.priceRaw).toBe('R$ 1.050');
     expect(toAd({ id: '13', title: 'C', price: { value: 900 } })?.priceRaw).toBe('900');
     expect(toAd({ id: '14', title: 'D', price: { formatted: 'Combine' } })?.priceRaw).toBe('Combine');
+    expect(toAd({ id: '15', title: 'E', price: { value: '980' } })?.priceRaw).toBe('980');
   });
 
   it('card sem preco e card com preco antes do titulo tem destino definido', () => {
@@ -82,20 +83,24 @@ describe('buildSearchUrl', () => {
   });
 });
 
-describe('createOlxAdapter.search', () => {
-  const adsHtml = '<script id="__NEXT_DATA__" type="application/json">' + JSON.stringify(blob) + '</script>';
+// adsHtml e adapterDe estao no escopo do arquivo, nao dentro do describe de search: o
+// describe de fetchOne usa o mesmo roteiro de respostas, e duplicar o fake e a porta
+// para os dois divergirem (um teste com erro de transporte que o outro nao ve).
+const adsHtml = '<script id="__NEXT_DATA__" type="application/json">' + JSON.stringify(blob) + '</script>';
 
-  const adapterDe = (steps: Array<{ status: number; text?: string }>, calls: string[], gaps: number[]) => {
-    let i = 0;
-    const http = async (url: string) => {
-      calls.push(url);
-      const step = steps[Math.min(i, steps.length - 1)]!;
-      i++;
-      const text = step.text ?? '';
-      return { status: step.status, text, error: step.status >= 400 ? ('http' as const) : undefined, json: <T>() => JSON.parse(text) as T };
-    };
-    return createOlxAdapter({ http, onPageGap: async () => { gaps.push(1); } });
+const adapterDe = (steps: Array<{ status: number; text?: string }>, calls: string[], gaps: number[]) => {
+  let i = 0;
+  const http = async (url: string) => {
+    calls.push(url);
+    const step = steps[Math.min(i, steps.length - 1)]!;
+    i++;
+    const text = step.text ?? '';
+    return { status: step.status, text, error: step.status >= 400 ? ('http' as const) : undefined, json: <T>() => JSON.parse(text) as T };
   };
+  return createOlxAdapter({ http, onPageGap: async () => { gaps.push(1); } });
+};
+
+describe('createOlxAdapter.search', () => {
 
   it('para na primeira pagina quando a fonte bloqueia (429) em vez de queimar as outras', async () => {
     const calls: string[] = []; const gaps: number[] = [];
@@ -123,12 +128,35 @@ describe('createOlxAdapter.search', () => {
     expect(ads).toHaveLength(6);
   });
 
+  it('acima do teto nao varre: pages=99 faz MAX_PAGES chamadas e para', async () => {
+    const calls: string[] = []; const gaps: number[] = [];
+    const adapter = adapterDe([{ status: 200, text: adsHtml }], calls, gaps);
+    await adapter.search({ ...monitor, params: { ...monitor.params, pages: 99 } }, new Date());
+    expect(calls).toHaveLength(MAX_PAGES);
+    expect(gaps).toHaveLength(MAX_PAGES - 1);
+  });
+
   it('health distingue corpo bom de pagina de desafio curta', async () => {
     const calls: string[] = []; const gaps: number[] = [];
     const ok = await adapterDe([{ status: 200, text: 'x'.repeat(600) }], calls, gaps).health();
     expect(ok).toEqual({ ok: true });
     const off = await adapterDe([{ status: 200, text: 'curto' }], calls, gaps).health();
     expect(off).toMatchObject({ ok: false, reason: 'http 200 / corpo curto' });
+  });
+});
+
+describe('createOlxAdapter.fetchOne', () => {
+  it('devolve exatamente o anuncio pedido', async () => {
+    const calls: string[] = []; const gaps: number[] = [];
+    const raw = await adapterDe([{ status: 200, text: adsHtml }], calls, gaps).fetchOne('1002');
+    expect(calls).toHaveLength(1);
+    expect(raw.externalId).toBe('1002');
+    expect(isOlxAd(raw.payload)).toBe(true);
+  });
+
+  it('pagina que devolve outros anuncios nao passa por este id: soft 404 lanca', async () => {
+    const calls: string[] = []; const gaps: number[] = [];
+    await expect(adapterDe([{ status: 200, text: adsHtml }], calls, gaps).fetchOne('9999999')).rejects.toThrow(/9999999/);
   });
 });
 
@@ -156,5 +184,10 @@ describe('createOlxAdapter.toListingInput', () => {
   it('payload que nao veio do parser vira rejeicao, nao TypeError', () => {
     const bruto = { source: 'olx' as const, externalId: '9001', url: 'https://olx/a/9001', fetchedAt: new Date(), payload: null };
     expect(adapter.toListingInput(bruto)).toMatchObject({ rejected: true, reason: 'payload-invalido', rawTitle: '9001' });
+  });
+
+  it('payload com priceRaw numerico tambem e rejeicao: a guarda olha os campos, nao so o objeto', () => {
+    const velho = { source: 'olx' as const, externalId: '9002', url: 'https://olx/a/9002', fetchedAt: new Date(), payload: { externalId: '9002', title: 'iPhone 12', priceRaw: 980 } };
+    expect(adapter.toListingInput(velho)).toMatchObject({ rejected: true, reason: 'payload-invalido', rawTitle: '9002' });
   });
 });

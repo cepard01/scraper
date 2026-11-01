@@ -57,7 +57,7 @@ const numToStr = (v: unknown): string => {
   if (typeof v === 'string') return v;
   if (isObj(v)) {
     const c = v as Candidate;
-    return firstString(c.formatted) ?? (typeof c.value === 'number' ? String(c.value) : '');
+    return firstString(c.formatted) ?? numToStr(c.value);
   }
   return '';
 };
