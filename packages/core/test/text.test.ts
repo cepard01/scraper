@@ -16,6 +16,11 @@ describe('cleanTitle', () => {
     expect(cleanTitle('VENDO RÁPIDO, NÃO FICO, ATÉ AMANHÃ: Bike Caloi 29')).toBe('bike caloi 29');
   });
 
+  it('remove urgencia acentuada sem partir a palavra', () => {
+    expect(cleanTitle('🔥 URGÊNCIA!! iPhone 12 128GB')).toBe('iphone 12 128gb');
+    expect(cleanTitle('URGENCIA: note i5 8gb')).toBe('note i5 8gb');
+  });
+
   it('normalizeCase faz NFD e minusculas', () => {
     expect(normalizeCase('Câmera PRO')).toBe('camera pro');
     expect(stripAccents('Câmera PRO')).toBe('Camera PRO'); // stripAccents só remove diacrítico: quem baixa a caixa é normalizeCase

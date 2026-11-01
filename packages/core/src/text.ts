@@ -1,5 +1,5 @@
 const URGENCY = [
-  'urgente', 'urgen', 'não fico até amanhã', 'vendo rápido', 'última chance',
+  'urgente', 'urgência', 'não fico até amanhã', 'vendo rápido', 'última chance',
   'corra', 'corra antes que suma', 'não perca', 'promoção relâmpago', 'frete grátis só hoje',
 ];
 

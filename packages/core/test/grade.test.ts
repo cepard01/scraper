@@ -44,6 +44,11 @@ describe('detectGrade', () => {
     expect(detectGrade('celular com riscos e tela rachada')).toBe('C');
   });
 
+  it('radical nao casa no meio de uma palavra maior', () => {
+    expect(detectGrade('aparelho deslacrado, funcionando normal')).toBe('B');
+    expect(detectGrade('aparelho lacrado, funcionando normal')).toBe('A');
+  });
+
   it('radical cobre flexão de gênero e número', () => {
     expect(detectGrade('capa bem conservada')).toBe('B');
     expect(detectGrade('mesa de cabeceira quebrada')).toBe('D');
