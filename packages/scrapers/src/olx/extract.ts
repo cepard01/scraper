@@ -11,7 +11,7 @@ export interface OlxAd {
   publishedAt: string | null;
 }
 
-export interface Candidate {
+interface Candidate {
   id?: unknown; title?: unknown; description?: unknown; price?: unknown;
   value?: unknown; formatted?: unknown;
   slug?: unknown; link?: unknown; url?: unknown; location?: unknown; images?: unknown;
@@ -65,13 +65,8 @@ export function toAd(candidate: Candidate): OlxAd | null {
 
   const loc = isObj(candidate.location) ? candidate.location as { city?: { name?: unknown }; state?: { initials?: unknown; name?: unknown } } : {};
   const images = Array.isArray(candidate.images)
-    ? (candidate.images as Array<{ url?: unknown }>)
-        .map((i) => {
-          const u = firstString(i.url);
-          if (!u) return null;
-          if (u.startsWith('//')) return `https:${u}`;
-          return /^https?:\/\//.test(u) ? u : null;
-        })
+    ? (candidate.images as Array<{ id?: unknown; cloudKeyId?: unknown; url?: unknown }>)
+        .map((i) => firstString(i.url, i.cloudKeyId ? `https://OLX_IMG_BASE/${i.cloudKeyId}` : null, i.id ? `https://OLX_IMG_BASE/${i.id}` : null))
         .filter((x): x is string => x !== null)
     : [];
 

@@ -4,7 +4,6 @@ import type { HttpGet } from '../http';
 import { sleep, jitter } from '../http';
 import { parseNextData, findAds, toAd, parseCardHtml, type OlxAd } from './extract';
 import { buildSearchUrl } from './url';
-import type { SourceAdapter } from '../contract';
 
 const HOST = 'https://www.olx.com.br';
 
@@ -12,7 +11,7 @@ export const isOlxAd = (x: OlxAd | null): x is OlxAd => x !== null;
 
 export interface OlxAdapterDeps { http: HttpGet }
 
-export function createOlxAdapter(deps: OlxAdapterDeps): SourceAdapter {
+export function createOlxAdapter(deps: OlxAdapterDeps) {
   const extract = (text: string): OlxAd[] => {
     const blob = parseNextData(text);
     if (blob) {
