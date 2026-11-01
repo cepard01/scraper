@@ -1,4 +1,4 @@
-import { desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import type { Db } from '../client';
 import { listings, opportunities, valuations } from '../schema';
 import type { Confidence, GateReason, OpportunityMath } from '../../types';
@@ -28,6 +28,11 @@ export interface RankedRow {
 }
 
 export function listShortlistedRanked(db: Db, limit: number): RankedRow[] {
+  const newestVerdict = db
+    .select({ id: sql<number>`max(${opportunities.id})` })
+    .from(opportunities)
+    .groupBy(opportunities.listingId);
+
   return db.select({
       listingId: opportunities.listingId,
       externalId: listings.externalId,
@@ -48,9 +53,19 @@ export function listShortlistedRanked(db: Db, limit: number): RankedRow[] {
     })
     .from(opportunities)
     .innerJoin(listings, eq(listings.id, opportunities.listingId))
-    .leftJoin(valuations, eq(valuations.id, opportunities.valuationId))
-    .where(eq(opportunities.gatePassed, true))
-    .orderBy(desc(opportunities.score))
+    .leftJoin(valuations, and(
+      eq(valuations.id, opportunities.valuationId),
+      eq(valuations.fingerprintId, listings.fingerprintId),
+    ))
+    .where(and(
+      eq(opportunities.gatePassed, true),
+      inArray(opportunities.id, newestVerdict),
+      isNull(listings.dupeOf),
+      ne(listings.status, 'gone'),
+      ne(listings.status, 'bought'),
+      ne(listings.status, 'ignored'),
+    ))
+    .orderBy(desc(opportunities.score), asc(opportunities.id))
     .limit(limit)
     .all();
 }

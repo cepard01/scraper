@@ -3,8 +3,14 @@ import type { Db } from '../client';
 import { fingerprints } from '../schema';
 import type { ParsedProduct } from '../../types';
 
+function seg(value: string | null): string {
+  if (value === null) return '?';
+  const flat = value.replace(/\|/g, ' ').replace(/\s+/g, ' ').trim();
+  return flat === '' ? '?' : flat;
+}
+
 export function fingerprintKey(p: ParsedProduct): string {
-  return [p.category, p.brand ?? '?', p.model ?? '?', p.variant ?? '?', p.grade].join('|');
+  return [p.category, p.brand, p.model, p.variant, p.grade].map(seg).join('|');
 }
 
 const ACRONYMS: Record<string, string> = {
@@ -31,12 +37,20 @@ export function fingerprintLabel(p: ParsedProduct): string {
   return `${tokens.join(' ')} (${p.grade})`;
 }
 
+function selectFingerprint(db: Db, key: string) {
+  return db.select({ id: fingerprints.id, key: fingerprints.key, label: fingerprints.label })
+    .from(fingerprints).where(eq(fingerprints.key, key)).get() ?? null;
+}
+
 export function getOrCreateFingerprint(db: Db, p: ParsedProduct): { id: number; key: string; label: string } {
   const key = fingerprintKey(p);
-  const existing = db.select().from(fingerprints).where(eq(fingerprints.key, key)).get();
-  if (existing) return { id: existing.id, key: existing.key, label: existing.label };
-  return db.insert(fingerprints)
+  const existing = selectFingerprint(db, key);
+  if (existing) return existing;
+  db.insert(fingerprints)
     .values({ key, category: p.category, brand: p.brand, model: p.model, variant: p.variant, grade: p.grade, label: fingerprintLabel(p) })
-    .returning({ id: fingerprints.id, key: fingerprints.key, label: fingerprints.label })
-    .get();
+    .onConflictDoNothing({ target: fingerprints.key })
+    .run();
+  const row = selectFingerprint(db, key);
+  if (!row) throw new Error(`fingerprint ${key} não está no banco depois do insert`);
+  return row;
 }

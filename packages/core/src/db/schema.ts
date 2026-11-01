@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { integer, text, real, sqliteTable, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
-import type { Category, Confidence, Cents, GateReason, Grade, ListingStatus, MonitorParams, SourceId } from '../types';
+import type { Category, Confidence, Cents, GateReason, Grade, ListingStatus, MonitorParams, SourceId, Valuation } from '../types';
 
 const ts = (name: string) => integer(name, { mode: 'timestamp_ms' });
 
@@ -76,7 +76,7 @@ export const valuations = sqliteTable('valuation', {
   fairGrossCents: integer('fair_gross_cents').$type<Cents | null>(),
   delta: real('delta').notNull(),
   liquidityDays: integer('liquidity_days').notNull(),
-  liquiditySource: text('liquidity_source').notNull(),
+  liquiditySource: text('liquidity_source').$type<Valuation['liquiditySource']>().notNull(),
   confidence: text('confidence').$type<Confidence>().notNull(),
   variantAgnostic: integer('variant_agnostic', { mode: 'boolean' }).notNull().default(false),
   computedAt: ts('computed_at').notNull(),
