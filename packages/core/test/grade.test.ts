@@ -59,6 +59,6 @@ describe('detectGrade', () => {
     expect(detectGrade('iPhone 12 (não liga) 128gb')).toBe('D');
     expect(detectGrade('notebook (defeito na placa)')).toBe('D');
     expect(detectGrade('geladeira (sem defeito) gelando normal')).toBe('B');
-    expect(detectGrade('iPhone 12 - lacrado -')).toBe('A');
+    expect(detectGrade('iphone 12 -lacrado-')).toBe('A');
   });
 });

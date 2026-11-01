@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeCase, stripAccents, cleanTitle, shingles, jaccard } from '../src/text';
+import { normalizeCase, stripAccents, stripSymbols, cleanTitle, shingles, jaccard } from '../src/text';
 
 describe('cleanTitle', () => {
   it('remove tokens de urgencia e emoji, preservando o produto', () => {
@@ -15,6 +15,10 @@ describe('cleanTitle', () => {
     expect(cleanTitle('CORRA ANTES QUE SUMA!! iPhone 12')).toBe('iphone 12');
     expect(cleanTitle('VENDO RÁPIDO, NÃO FICO, ATÉ AMANHÃ: Bike Caloi 29')).toBe('bike caloi 29');
     expect(cleanTitle('VENDO RÁPIDO, NÃO FICO AMANHÃ Bike Caloi 29')).toBe('bike caloi 29');
+  });
+
+  it('stripSymbols troca simbolo por espaco e nao faz mais nada', () => {
+    expect(stripSymbols('iPhone 12 (não liga)')).toBe('iPhone 12  não liga ');
   });
 
   it('nao parte palavra ao purgar urgencia', () => {
