@@ -143,3 +143,76 @@ describe('extractProduct outras categorias', () => {
     expect(comCpu.matched).toBe(true);
   });
 });
+
+describe('correções de fingerprint (round 1)', () => {
+  it('R52: + separado por espaço não vira sufixo plus', () => {
+    const espacado = extractProduct('iPhone 14 + 128GB', '');
+    const plus = extractProduct('iPhone 14 Plus 128GB', '');
+    expect(espacado.model).toBe('iphone 14');
+    expect(espacado.variant).toBe('128gb');
+    expect(espacado.model).not.toBe(plus.model);
+  });
+
+  it('R53: rede declarada entra na variante do celular', () => {
+    const net4 = extractProduct('Redmi Note 12 4G 128GB', '');
+    const net5 = extractProduct('Redmi Note 12 5G 128GB', '');
+    expect(net4.model).toBe(net5.model);
+    expect(net4.variant).toBe('128gb-4g');
+    expect(net5.variant).toBe('128gb-5g');
+  });
+
+  it('R53: rede não declarada não é inferida', () => {
+    const p = extractProduct('Galaxy S24 256GB', '');
+    expect(p.variant).toBe('256gb');
+  });
+
+  it('R54: cabeça de lista no meio da corrida não consome orçamento', () => {
+    const pro = extractProduct('Xiaomi Redmi Note 13 Pro 5G 256GB', '');
+    const base = extractProduct('Xiaomi Redmi Note 13 5G 256GB', '');
+    expect(pro.model).toBe('xiaomi redmi note 13 pro');
+    expect(pro.model).not.toBe(base.model);
+  });
+
+  it('R55: nome de peça casa na fronteira da palavra', () => {
+    const p = extractProduct('Importado Gol Radiador', '');
+    expect(p.variant).toBe('radiador');
+    expect(p.matched).toBe(true);
+  });
+
+  it('R55: porta na fronteira válida mantém a geração na variante', () => {
+    const p = extractProduct('Porta Gol G5', '');
+    expect(p.variant).toBe('portag5');
+    expect(p.matched).toBe(true);
+  });
+
+  it('R56: autopeça sem peça nomeada fica fora da valoração', () => {
+    const p = extractProduct('Peça Gol G5', '');
+    expect(p.variant).toBeNull();
+    expect(p.matched).toBe(false);
+  });
+
+  it('R57: identidade vem do título, atributos vêm do título mais descrição', () => {
+    const p = extractProduct('iPhone 12 128GB', 'desbloqueado, aceito troca por 13 pro max 512gb');
+    expect(p.model).toBe('iphone 12');
+    expect(p.variant).toBe('128gb-desbloqueado');
+  });
+
+  it('R58: x5 de celular não é chip de notebook', () => {
+    const p = extractProduct('Poco X5 Pro 256GB', '');
+    expect(p.model).toBe('poco x5 pro');
+    expect(p.variant).toBe('256gb');
+    expect(p.matched).toBe(true);
+  });
+
+  it('R59: lacrados no plural não vaza para o modelo e canonicaliza o slug', () => {
+    const p = extractProduct('Samsung Galaxy A54 lacrados', '');
+    expect(p.model).toBe('galaxy a54');
+    expect(p.variant).toBe('lacrado');
+    expect(p.matched).toBe(true);
+  });
+
+  it('R59: lacrada no feminino vira o slug lacrado', () => {
+    const p = extractProduct('iPhone 11 nova lacrada', '');
+    expect(p.variant).toBe('lacrado');
+  });
+});
