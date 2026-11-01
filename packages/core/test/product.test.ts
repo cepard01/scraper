@@ -53,6 +53,18 @@ describe('extractProduct celular', () => {
     expect(a.model).toBe(b.model);
   });
 
+  it('pro max no fim do nome não é cortado pelo budget', () => {
+    const pro = extractProduct('Xiaomi Redmi Note 13 Pro 256GB', '');
+    const max = extractProduct('Xiaomi Redmi Note 13 Pro Max 256GB', '');
+    expect(max.model).toBe('xiaomi redmi note 13 pro max');
+    expect(pro.model).not.toBe(max.model);
+
+    const pro5g = extractProduct('Redmi Note 13 Pro 5G 256GB', '');
+    const max5g = extractProduct('Redmi Note 13 Pro Max 5G 256GB', '');
+    expect(max5g.model).not.toBe(pro5g.model);
+    expect(max5g.variant).toBe('256gb-5g');
+  });
+
   it('família solta sem número não vira modelo', () => {
     const semNumero = extractProduct('iPhone 128GB', '');
     expect(semNumero.model).toBeNull();

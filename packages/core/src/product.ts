@@ -147,7 +147,10 @@ function bikeSpeedSlug(t: string): string | null {
 }
 
 function modelFrom(t: string, category: Category): string | null {
-  if (category === 'celular') return headModel(t, CELULAR_HEADS, 3, false, true);
+  // Celular: quatro tokens não-cabeça de orçamento. Com três, `Redmi Note 13 Pro` e
+  // `Redmi Note 13 Pro Max` fechavam no mesmo modelo e dividiam a mediana — fundir produtos
+  // é o erro caro; um adjetivo a mais no título fragmenta, e esse é o erro barato.
+  if (category === 'celular') return headModel(t, CELULAR_HEADS, 4, false, true);
   if (category === 'notebook') return headModel(t, NOTEBOOK_HEADS, 1, true, false, NOTEBOOK_CPU_RE);
   if (category === 'console') {
     const ps = t.match(/(?<![\p{L}\p{N}])(?:playstation|ps)[\s-]*([45])(?:[\s-]*(super slim|slim 2|slim|pro|fat|digital|edicao))?/u);
