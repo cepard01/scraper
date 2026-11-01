@@ -14,6 +14,12 @@ describe('cleanTitle', () => {
   it('remove a frase de urgencia inteira, nao so a primeira palavra', () => {
     expect(cleanTitle('CORRA ANTES QUE SUMA!! iPhone 12')).toBe('iphone 12');
     expect(cleanTitle('VENDO RÁPIDO, NÃO FICO, ATÉ AMANHÃ: Bike Caloi 29')).toBe('bike caloi 29');
+    expect(cleanTitle('VENDO RÁPIDO, NÃO FICO AMANHÃ Bike Caloi 29')).toBe('bike caloi 29');
+  });
+
+  it('nao parte palavra ao purgar urgencia', () => {
+    expect(cleanTitle('CORRAM ANTES QUE SUMA!! iPhone 12')).toBe('corram antes que suma iphone 12');
+    expect(cleanTitle('iphone 12 128gb urgentissimo')).toBe('iphone 12 128gb urgentissimo');
   });
 
   it('remove urgencia acentuada sem partir a palavra', () => {

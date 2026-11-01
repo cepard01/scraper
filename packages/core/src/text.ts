@@ -1,5 +1,5 @@
 const URGENCY = [
-  'urgente', 'urgência', 'não fico até amanhã', 'vendo rápido', 'última chance',
+  'urgente', 'urgência', 'não fico até amanhã', 'não fico amanhã', 'vendo rápido', 'última chance',
   'corra', 'corra antes que suma', 'não perca', 'promoção relâmpago', 'frete grátis só hoje',
 ];
 
@@ -13,20 +13,26 @@ export function normalizeCase(s: string): string {
   return stripAccents(s.toLowerCase());
 }
 
+export function stripSymbols(s: string): string {
+  return s.replace(STOP_SYMBOLS, ' ');
+}
+
 function escapeRe(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 }
 
 const URGENCY_RE = new RegExp(
-  URGENCY
-    .map((u) => normalizeCase(u).split(' ').map(escapeRe).join('\\s+'))
-    .sort((a, b) => b.length - a.length)
-    .join('|'),
-  'g',
+  '(?<![\\p{L}\\p{N}])(?:' +
+    URGENCY
+      .map((u) => normalizeCase(u).split(' ').map(escapeRe).join('\\s+'))
+      .sort((a, b) => b.length - a.length)
+      .join('|') +
+    ')(?![\\p{L}\\p{N}])',
+  'gu',
 );
 
 export function cleanTitle(s: string): string {
-  const out = normalizeCase(s).replace(STOP_SYMBOLS, ' ').replace(URGENCY_RE, ' ');
+  const out = stripSymbols(normalizeCase(s)).replace(URGENCY_RE, ' ');
   return out.replace(/\s+/g, ' ').trim();
 }
 

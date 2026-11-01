@@ -54,4 +54,11 @@ describe('detectGrade', () => {
     expect(detectGrade('mesa de cabeceira quebrada')).toBe('D');
     expect(detectGrade('iphone 12 sem uso, na caixa lacrado')).toBe('A');
   });
+
+  it('pontuacao colada na pista nao esconde a grade', () => {
+    expect(detectGrade('iPhone 12 (não liga) 128gb')).toBe('D');
+    expect(detectGrade('notebook (defeito na placa)')).toBe('D');
+    expect(detectGrade('geladeira (sem defeito) gelando normal')).toBe('B');
+    expect(detectGrade('iPhone 12 - lacrado -')).toBe('A');
+  });
 });

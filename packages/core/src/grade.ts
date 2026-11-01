@@ -1,5 +1,5 @@
 import type { Grade } from './types';
-import { normalizeCase } from './text';
+import { normalizeCase, stripSymbols } from './text';
 
 // Chave casa no começo de uma palavra e por prefixo: 'usad' pega usado/usada/usados e não 'causado'.
 const D = ['não liga', 'não funciona', 'não carrega', 'não aciona', 'defeito', 'defeituoso',
@@ -26,7 +26,7 @@ const NEG = NEGATED.map(key);
 const hits = (t: string, keys: string[]): boolean => keys.some((k) => t.includes(k));
 
 export function detectGrade(text: string): Grade {
-  let t = ' ' + normalizeCase(text).replace(/\s+/g, ' ');
+  let t = ' ' + stripSymbols(normalizeCase(text)).replace(/\s+/g, ' ');
   for (const n of NEG) t = t.split(n).join(' ');
   if (hits(t, KEYS.D)) return 'D';
   if (hits(t, KEYS.A)) return 'A';
