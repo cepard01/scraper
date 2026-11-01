@@ -3,16 +3,16 @@ import type { ListingInput, RawListing, SearchMonitor } from '@brique/core/types
 import type { HttpGet } from '../http';
 import { sleep, jitter } from '../http';
 import { parseNextData, findAds, toAd, parseCardHtml, type OlxAd } from './extract';
-import { buildSearchUrl } from './url';
+import { buildSearchUrl, HOST, MAX_PAGES } from './url';
 import type { SourceAdapter } from '../contract';
 
-const HOST = 'https://www.olx.com.br';
+export const isOlxAd = (x: unknown): x is OlxAd =>
+  typeof x === 'object' && x !== null && typeof (x as OlxAd).externalId === 'string' && typeof (x as OlxAd).priceRaw === 'string';
 
-export const isOlxAd = (x: OlxAd | null): x is OlxAd => x !== null;
-
-export interface OlxAdapterDeps { http: HttpGet }
+export interface OlxAdapterDeps { http: HttpGet; onPageGap?: () => Promise<void> }
 
 export function createOlxAdapter(deps: OlxAdapterDeps): SourceAdapter {
+  const gap = deps.onPageGap ?? (async () => sleep(jitter(1500, 4000)));
   const extract = (text: string): OlxAd[] => {
     const blob = parseNextData(text);
     if (blob) {
@@ -33,18 +33,17 @@ export function createOlxAdapter(deps: OlxAdapterDeps): SourceAdapter {
     },
 
     async search(monitor: SearchMonitor, _since: Date) {
-      const pages = Math.min(monitor.params.pages ?? 3, 6);
+      const pages = Math.min(monitor.params.pages ?? 3, MAX_PAGES);
       const out: RawListing[] = [];
       for (let page = 1; page <= pages; page++) {
         const res = await deps.http(buildSearchUrl(monitor, page));
-        if (res.error === 'http' && (res.status === 403 || res.status === 429)) break;
-        if (res.status !== 200) break;
+        if (res.status !== 200) break; // bloqueio (403/429) e erro de rede caem aqui; quem precisa distinguir 'fonte bloqueada' de 'dia sem anuncio' e o run do Task 16, nao o search
         const ads = extract(res.text);
         if (ads.length === 0) break;
         for (const ad of ads) {
           out.push({ source: 'olx', externalId: ad.externalId, url: ad.url, fetchedAt: new Date(), payload: ad });
         }
-        await sleep(jitter(1500, 4000));
+        if (page < pages) await gap();
       }
       return out;
     },
@@ -58,7 +57,8 @@ export function createOlxAdapter(deps: OlxAdapterDeps): SourceAdapter {
     },
 
     toListingInput(raw: RawListing): ListingInput | { rejected: true; reason: string; rawTitle: string } {
-      const ad = raw.payload as OlxAd;
+      if (!isOlxAd(raw.payload)) return { rejected: true, reason: 'payload-invalido', rawTitle: raw.externalId };
+      const ad = raw.payload;
       const price = parsePriceBRL(ad.priceRaw);
       if (!price.ok) return { rejected: true, reason: price.reason, rawTitle: ad.title };
       return {

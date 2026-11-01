@@ -1,3 +1,5 @@
+import { HOST } from './url';
+
 export interface OlxAd {
   externalId: string;
   title: string;
@@ -53,7 +55,10 @@ const firstString = (...vals: unknown[]): string | null => {
 const numToStr = (v: unknown): string => {
   if (typeof v === 'number') return String(v);
   if (typeof v === 'string') return v;
-  if (isObj(v)) return firstString((v as Candidate).value, (v as Candidate).formatted) ?? '';
+  if (isObj(v)) {
+    const c = v as Candidate;
+    return firstString(c.formatted) ?? (typeof c.value === 'number' ? String(c.value) : '');
+  }
   return '';
 };
 
@@ -79,7 +84,7 @@ export function toAd(candidate: Candidate): OlxAd | null {
     externalId,
     title,
     priceRaw,
-    url: firstString(candidate.url, candidate.link, candidate.slug ? `https://www.olx.com.br/anuncio/${candidate.slug}` : null) ?? '',
+    url: firstString(candidate.url, candidate.link, candidate.slug ? `${HOST}/anuncio/${candidate.slug}` : null) ?? '',
     city: firstString(isObj(loc.city) ? (loc.city as { name?: unknown }).name : null),
     uf: firstString(isObj(loc.state) ? (loc.state as { initials?: unknown }).initials : null),
     description: firstString(candidate.description) ?? '',
@@ -104,7 +109,7 @@ export function parseCardHtml(html: string): OlxAd[] {
     const title = text.slice(0, text.indexOf(priceMatch[0])).trim() || 'sem titulo';
     out.push({
       externalId: href.split('/').pop()!.replace(/\?.*$/, ''),
-      title, priceRaw: priceMatch[0], url: `https://www.olx.com.br${href}`,
+      title, priceRaw: priceMatch[0], url: `${HOST}${href}`,
       city: null, uf: null, description: '', imageUrls: [], sellerRef: null, publishedAt: null,
     });
   }
