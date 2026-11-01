@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { parseNextData, findAds, toAd, parseCardHtml } from '../src/olx/extract';
 import { createOlxAdapter, isOlxAd } from '../src/olx/adapter';
+import { isRejected } from '../src/contract';
 import { buildSearchUrl } from '../src/olx/url';
 import type { SearchMonitor } from '@brique/core/types';
 
@@ -21,7 +22,15 @@ describe('findAds', () => {
 
   it('toAd extrai campos e lida com preco textual', () => {
     const ads = findAds(blob).map(toAd).filter(isOlxAd);
-    expect(ads[0]).toMatchObject({ externalId: '1001', title: 'iPhone 12 128GB Desbloqueado', priceRaw: 'R$ 980', city: 'Curitiba', uf: 'PR' });
+    expect(ads[0]).toMatchObject({
+      externalId: '1001', title: 'iPhone 12 128GB Desbloqueado', priceRaw: 'R$ 980', city: 'Curitiba', uf: 'PR',
+      imageUrls: ['https://thumb.olxcdn.com/img-a.jpg'],
+    });
+  });
+
+  it('descarta imagem sem url utilizavel em vez de inventar hospedeiro', () => {
+    const ad = toAd({ id: '9', title: 'Qualquer coisa', price: 10, images: [{ id: 'img-b' }, { url: '/caminho/relativo.jpg' }] });
+    expect(ad?.imageUrls).toEqual([]);
   });
 
   it('parseCardHtml pega o preco de cada card quando nao ha blob', () => {
@@ -61,11 +70,13 @@ describe('createOlxAdapter.toListingInput', () => {
     const raw = { source: 'olx' as const, externalId: '1001', url: 'https://olx/a/1001', fetchedAt: new Date(), payload: toAd(findAds(blob)[0]!)! };
     const li = adapter.toListingInput(raw);
     expect(li).toMatchObject({ askingCents: 98_000, city: 'Curitiba', uf: 'PR' });
+    expect(isRejected(li)).toBe(false);
   });
 
   it('rejeita com motivo quando o preco nao e preco', () => {
     const raw = { source: 'olx' as const, externalId: '1003', url: 'https://olx/a/1003', fetchedAt: new Date(), payload: toAd(findAds(blob)[2]!)! };
     const res = adapter.toListingInput(raw);
     expect(res).toMatchObject({ rejected: true, reason: 'gratuito' });
+    expect(isRejected(res)).toBe(true);
   });
 });
