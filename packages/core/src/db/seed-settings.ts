@@ -31,3 +31,14 @@ export function seedSettings(db: Db, s: Settings): void {
               on conflict(key) do nothing`);
   }
 }
+
+import { settings } from './schema';
+
+export function loadSettings(db: Db): Settings {
+  const rows = db.select({ key: settings.key, value: settings.value }).from(settings).all();
+  const found: Record<string, unknown> = {};
+  for (const r of rows) {
+    try { found[r.key] = JSON.parse(r.value); } catch { found[r.key] = r.value; }
+  }
+  return { ...DEFAULT_SETTINGS, ...found } as Settings;
+}
