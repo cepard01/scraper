@@ -11,10 +11,14 @@ describe('cleanTitle', () => {
     expect(cleanTitle('Notebook   i5, 8GB/256SSD!!')).toBe('notebook i5 8gb 256ssd');
   });
 
+  it('remove a frase de urgencia inteira, nao so a primeira palavra', () => {
+    expect(cleanTitle('CORRA ANTES QUE SUMA!! iPhone 12')).toBe('iphone 12');
+    expect(cleanTitle('VENDO RÁPIDO, NÃO FICO, ATÉ AMANHÃ: Bike Caloi 29')).toBe('bike caloi 29');
+  });
+
   it('normalizeCase faz NFD e minusculas', () => {
     expect(normalizeCase('Câmera PRO')).toBe('camera pro');
-    // o pino do brief pede 'camera PRO'; stripAccents não minúscula, então o 'C' maiúsculo sobrevive
-    expect(stripAccents('Câmera PRO')).toBe('Camera PRO');
+    expect(stripAccents('Câmera PRO')).toBe('Camera PRO'); // stripAccents só remove diacrítico: quem baixa a caixa é normalizeCase
   });
 });
 
@@ -25,5 +29,10 @@ describe('shingles/jaccard', () => {
     expect(jaccard(a, b)).toBeGreaterThan(0.5);
     const c = shingles(cleanTitle('geladeira brastemp 340 litros'));
     expect(jaccard(a, c)).toBeLessThan(0.1);
+  });
+
+  it('titulo curto e comparado inteiro', () => {
+    expect(shingles('iphone 12')).toEqual(new Set(['iphone 12']));
+    expect(jaccard(shingles('iphone 12'), shingles('iphone 12 preto'))).toBe(0);
   });
 });

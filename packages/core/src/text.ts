@@ -1,7 +1,6 @@
 const URGENCY = [
-  'urgente', 'urgência', 'urgen', 'não fico até amanhã', 'nao fico amanha', 'vendo rápido',
-  'vendo rapido', 'última chance', 'ultima chance', 'corra', 'corra antes que suma',
-  'não perca', 'nao perca', 'promoção relâmpago', 'frete grátis só hoje',
+  'urgente', 'urgen', 'não fico até amanhã', 'vendo rápido', 'última chance',
+  'corra', 'corra antes que suma', 'não perca', 'promoção relâmpago', 'frete grátis só hoje',
 ];
 
 const STOP_SYMBOLS = /[^\p{L}\p{N}\s]+/gu;
@@ -14,15 +13,21 @@ export function normalizeCase(s: string): string {
   return stripAccents(s.toLowerCase());
 }
 
-export function cleanTitle(s: string): string {
-  let out = normalizeCase(s ?? '');
-  out = out.replace(new RegExp(URGENCY.map((u) => escapeRe(normalizeCase(u))).join('|'), 'g'), ' ');
-  out = out.replace(STOP_SYMBOLS, ' ');
-  return out.replace(/\s+/g, ' ').trim();
-}
-
 function escapeRe(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+}
+
+const URGENCY_RE = new RegExp(
+  URGENCY
+    .map((u) => normalizeCase(u).split(' ').map(escapeRe).join('\\s+'))
+    .sort((a, b) => b.length - a.length)
+    .join('|'),
+  'g',
+);
+
+export function cleanTitle(s: string): string {
+  const out = normalizeCase(s).replace(STOP_SYMBOLS, ' ').replace(URGENCY_RE, ' ');
+  return out.replace(/\s+/g, ' ').trim();
 }
 
 export function shingles(s: string, n = 3): Set<string> {

@@ -29,4 +29,24 @@ describe('detectGrade', () => {
     expect(detectGrade('ótimo estado')).toBe('B');
     expect(detectGrade('carcaça com arranhões')).toBe('C');
   });
+
+  it('negação de defeito não vira defeito', () => {
+    expect(detectGrade('iphone 12 não lacrado, mas funcionando')).toBe('B');
+    expect(detectGrade('notebook bom estado, sem detalhes')).toBe('B');
+    expect(detectGrade('bike aro 29 sem marcas de uso')).toBe('B');
+    expect(detectGrade('geladeira sem defeito, gelando normal')).toBe('B');
+  });
+
+  it('defeito e dano sem frase feita caem na grade certa', () => {
+    expect(detectGrade('aparelho apresenta defeito')).toBe('D');
+    expect(detectGrade('notebook com dano causado por queda')).toBe('C');
+    expect(detectGrade('carcaça amassada e descascada')).toBe('C');
+    expect(detectGrade('celular com riscos e tela rachada')).toBe('C');
+  });
+
+  it('radical cobre flexão de gênero e número', () => {
+    expect(detectGrade('capa bem conservada')).toBe('B');
+    expect(detectGrade('mesa de cabeceira quebrada')).toBe('D');
+    expect(detectGrade('iphone 12 sem uso, na caixa lacrado')).toBe('A');
+  });
 });
