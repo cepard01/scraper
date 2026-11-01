@@ -29,7 +29,7 @@ const LACRADO_RE = /\blacrad[ao]s?\b/;
 function view(text: string): string {
   // R52: só o `+` adjacente a dígito é sufixo de modelo (`S24+`). `14 + 128GB` é pacote:
   // sem `\s*` no regex, o sinal separado vira símbolo e `cleanTitle` o apaga — destino correto.
-  const spelled = text.replace(/(\p{N})\+(?![\p{L}\p{N}])/gu, '$1 plus');
+  const spelled = text.replace(/([\p{L}\p{N}])\+(?![\p{L}\p{N}])/gu, '$1 plus');
   return ` ${cleanTitle(spelled).replace(/(\d)[\s]+(gb|ssd|hdd|tb|ram)/g, '$1$2')} `;
 }
 

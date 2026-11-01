@@ -65,6 +65,16 @@ describe('extractProduct celular', () => {
     expect(max5g.variant).toBe('256gb-5g');
   });
 
+  it('pro+ com sinal é outro modelo, não o pro', () => {
+    const plus = extractProduct('Redmi Note 13 Pro+ 5G 256GB', '');
+    const pro = extractProduct('Redmi Note 13 Pro 5G 256GB', '');
+    expect(plus.model).toBe('redmi note 13 pro plus');
+    expect(plus.model).not.toBe(pro.model);
+    expect(plus.variant).toBe('256gb-5g');
+    // o sinal adjacente a dígito continua virando plus (S24+)
+    expect(extractProduct('Galaxy S24+ 256GB', '').model).toBe('galaxy s24 plus');
+  });
+
   it('família solta sem número não vira modelo', () => {
     const semNumero = extractProduct('iPhone 128GB', '');
     expect(semNumero.model).toBeNull();
