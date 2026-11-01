@@ -1,0 +1,25 @@
+{
+  "site_id": "MLB",
+  "query": "iphone 12 128gb",
+  "paging": { "total": 1000, "primary_results": 1000, "offset": 0, "limit": 20 },
+  "results": [
+    {
+      "id": "MLB1111111111", "title": "Iphone 12 128Gb Desbloqueado Novo Lacrado",
+      "price": 1499, "available_quantity": 3, "sold_quantity": 41,
+      "condition": "new", "catalog_product_id": "MLB17405425",
+      "permalink": "http://produto.mercadolivre.com.br/MLB-1111111111",
+      "thumbnail": "http://http2.mlstatic.com/D_NQ_NP_1111111111-1.jpg",
+      "address": { "state": { "name": "Paraná", "id": "BR-PR" } },
+      "seller_id": 987654
+    },
+    {
+      "id": "MLB2222222222", "title": "Iphone 12 128Gb Usado Bom Estado",
+      "price": 1150.5, "available_quantity": 1, "sold_quantity": 0,
+      "condition": "used", "catalog_product_id": null,
+      "permalink": "http://produto.mercadolivre.com.br/MLB-2222222222",
+      "thumbnail": "http://http2.mlstatic.com/D_NQ_NP_2222222222-1.jpg",
+      "address": { "state": { "name": "São Paulo", "id": "BR-SP" } },
+      "seller_id": 123456
+    }
+  ]
+}
