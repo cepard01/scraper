@@ -43,7 +43,7 @@ describe('meli adapter', () => {
   it('normaliza preco inteiro de reais em centavos', () => {
     const li = adapter.toListingInput({ source: 'meli', externalId: item.id, url: item.permalink, fetchedAt: new Date(), payload: item });
     expect(li).toMatchObject({
-      askingCents: 149_900, askingRaw: '1499', uf: 'PR', city: null,
+      source: 'meli', askingCents: 149_900, askingRaw: '1499', uf: 'PR', city: null,
       title: 'Iphone 12 128Gb Desbloqueado Novo Lacrado', sellerRef: '987654',
     });
     expect(isRejected(li)).toBe(false);
@@ -52,6 +52,32 @@ describe('meli adapter', () => {
   it('normaliza preco com duas casas sem perder o centavo', () => {
     const li = adapter.toListingInput({ source: 'meli', externalId: 'MLB2222222222', url: 'x', fetchedAt: new Date(), payload: payload.results[1] });
     expect('askingCents' in li && li.askingCents).toBe(115_050);
+  });
+
+  it('preco cujo x100 nao e exato e arredondado, nao truncado', () => {
+    // o item do fixture (1150.5) NAO prova o arredondamento: 1150.5 * 100 === 115050
+    // exatamente. Em float, 2599.95 * 100 === 259994.99999999997, e e esse caso que
+    // separa Math.round de Math.floor ou de nenhum round. Sem ele, askingCents chega
+    // fracionario numa coluna integer e a mediana da Task 13 herda a fracao.
+    const li = adapter.toListingInput({ source: 'meli', externalId: 'MLB4444444444', url: 'x', fetchedAt: new Date(), payload: { ...item, price: 2599.95 } });
+    expect('askingCents' in li && li.askingCents).toBe(259_995);
+  });
+
+  it('sold_quantity zero e uma medida, nao vira placeholder', () => {
+    const li = adapter.toListingInput({ source: 'meli', externalId: 'MLB2222222222', url: 'x', fetchedAt: new Date(), payload: payload.results[1] });
+    expect('description' in li ? li.description : null).toBe('condicao:used sold_quantity:0');
+  });
+
+  it('state id que nao e BR- nao vira uf inventado', () => {
+    const li = adapter.toListingInput({ source: 'meli', externalId: 'MLB5555555555', url: 'x', fetchedAt: new Date(), payload: { ...item, address: { state: { id: 'AR-P', name: 'Paraná' } } } });
+    expect('uf' in li && li.uf).toBe(null);
+  });
+
+  it('a thumbnail da API e a unica imagem que a fonte entrega', () => {
+    const li = adapter.toListingInput({ source: 'meli', externalId: item.id, url: 'x', fetchedAt: new Date(), payload: item });
+    expect('imageUrls' in li ? li.imageUrls : null).toEqual([item.thumbnail]);
+    const sem = adapter.toListingInput({ source: 'meli', externalId: 'MLB6', url: 'x', fetchedAt: new Date(), payload: { ...item, thumbnail: undefined } });
+    expect('imageUrls' in sem ? sem.imageUrls : null).toEqual([]);
   });
 
   it('descricao carrega condition e sold_quantity, e nenhuma palavra de grade', () => {
@@ -128,7 +154,7 @@ type Call = { url: string; auth?: string };
 
 const corpo = (items: unknown[]): unknown => ({ results: items, paging: { total: items.length, offset: 0, limit: LIMIT } });
 
-const adapterDe = (steps: Step[], calls: Call[], gaps: number[], token: string | null = 'fake') => {
+const adapterDe = (steps: Step[], calls: Call[], gaps: number[], token: string | null = 'fake', unit = 'MLB') => {
   let i = 0;
   const http: HttpGet = async (url, init) => {
     calls.push({ url, auth: init?.headers?.authorization });
@@ -144,13 +170,16 @@ const adapterDe = (steps: Step[], calls: Call[], gaps: number[], token: string |
       },
     };
   };
-  return createMeliAdapter({ http, token, unit: 'MLB', onPageGap: async () => { gaps.push(1); } });
+  return createMeliAdapter({ http, token, unit, onPageGap: async () => { gaps.push(1); } });
 };
 
 describe('createMeliAdapter.search', () => {
   it('para na primeira pagina quando a fonte recusa credencial (401)', async () => {
     const calls: Call[] = []; const gaps: number[] = [];
-    const raws = await adapterDe([{ status: 401, body: { message: 'unauthorized' } }], calls, gaps).search({ ...monitor, params: { pages: 3 } }, new Date());
+    // o corpo traz results reais de proposito: se o 401 devolver pagina vazia, este teste
+    // para tambem pelo break de "pagina sem itens" e as duas condicoes de parada ficam
+    // indistingutiveis. Com corpo util no 401, quem encerra a varredura e o status.
+    const raws = await adapterDe([{ status: 401, body: corpo([item, payload.results[1]]) }], calls, gaps).search({ ...monitor, params: { pages: 3 } }, new Date());
     expect(calls).toHaveLength(1);
     expect(raws).toEqual([]);
     expect(gaps).toHaveLength(0);
@@ -177,8 +206,12 @@ describe('createMeliAdapter.search', () => {
   it('acima do teto nao varre: pages=99 faz MAX_PAGES chamadas e para', async () => {
     const calls: Call[] = []; const gaps: number[] = [];
     await adapterDe([{ status: 200, body: corpo([item]) }], calls, gaps).search({ ...monitor, params: { pages: 99 } }, new Date());
-    expect(calls).toHaveLength(MAX_PAGES);
-    expect(gaps).toHaveLength(MAX_PAGES - 1);
+    // o teto e uma politica de consumo de API, nao um detalhe de implementacao: pinar o
+    // literal (4 e 3) e o que faz MAX_PAGES mudar de valor quebre a suite. Escrito com a
+    // constante, o teto podia virar 99 e este teste continuaria verde.
+    expect(MAX_PAGES).toBe(4);
+    expect(calls).toHaveLength(4);
+    expect(gaps).toHaveLength(3);
   });
 
   it('pagina por offset, nao por numero de pagina', async () => {
@@ -196,6 +229,26 @@ describe('createMeliAdapter.search', () => {
     expect(calls.every((c) => !c.url.includes('fake'))).toBe(true);
   });
 
+  it('pede o query do monitor, nao um termo fixo do adapter', async () => {
+    const calls: Call[] = [];
+    await adapterDe([{ status: 200, body: corpo([item]) }], calls, []).search(monitor, new Date());
+    expect(calls[0]!.url).toContain('q=iphone+12+128gb');
+  });
+
+  it('sem params.pages o padrao e duas paginas, nao uma', async () => {
+    const calls: Call[] = []; const gaps: number[] = [];
+    await adapterDe([{ status: 200, body: corpo([item]) }], calls, gaps).search({ ...monitor, params: {} }, new Date());
+    expect(calls).toHaveLength(2);
+    expect(gaps).toHaveLength(1);
+  });
+
+  it('item que nao passa no guard nao vira RawListing quebrado', async () => {
+    const calls: Call[] = [];
+    const raws = await adapterDe([{ status: 200, body: corpo([{ id: 1 }]) }], calls, []).search(monitor, new Date());
+    expect(raws).toEqual([]);
+    expect(calls).toHaveLength(1);
+  });
+
   it('200 com corpo que nao e JSON para sem lancar e preserva a pagina boa', async () => {
     const calls: Call[] = []; const gaps: number[] = [];
     const raws = await adapterDe([{ status: 200, body: corpo([item, payload.results[1]]) }, { status: 200, naoJson: true }], calls, gaps)
@@ -210,8 +263,19 @@ describe('createMeliAdapter.search', () => {
     expect(await adapterDe([{ status: 200, body: corpo([]) }], calls, gaps).health()).toEqual({ ok: true });
     expect(await adapterDe([{ status: 200, body: { error: 'bad_request' } }], calls, gaps).health())
       .toMatchObject({ ok: false, reason: 'http 200 / corpo sem results' });
+    // portal cativo devolve 200 com HTML: health tem de devolver motivo, nao lancar, porque
+    // o boot da Task 16 so sabe ler o objeto do contrato.
+    expect(await adapterDe([{ status: 200, naoJson: true }], calls, gaps).health())
+      .toMatchObject({ ok: false, reason: 'http 200 / corpo sem results' });
     expect(await adapterDe([{ status: 401, body: { message: 'unauthorized' } }], calls, gaps).health())
       .toMatchObject({ ok: false, reason: 'http 401 / http' });
+    expect(calls[calls.length - 1]!.url).toContain('limit=1');
+  });
+
+  it('health usa o unit configurado, nao um MLB fixo no corpo do adapter', async () => {
+    const calls: Call[] = [];
+    await adapterDe([{ status: 200, body: corpo([]) }], calls, [], 'fake', 'MLM').health();
+    expect(calls[0]!.url).toContain('/sites/MLM/search');
   });
 });
 
