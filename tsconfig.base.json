@@ -12,7 +12,10 @@
     "resolveJsonModule": true,
     "types": ["node"],
     "paths": {
-      "@brique/core": ["./packages/core/src/types.ts"]
+      "@brique/core": ["./packages/core/src/types.ts"],
+      "@brique/core/*": ["./packages/core/src/*"],
+      "@brique/scrapers": ["./packages/scrapers/src/index.ts"],
+      "@brique/scrapers/*": ["./packages/scrapers/src/*"]
     }
   },
   "include": ["packages/*/src/**/*.ts", "packages/*/test/**/*.ts", "tests/**/*.ts", "scripts/**/*.ts"]

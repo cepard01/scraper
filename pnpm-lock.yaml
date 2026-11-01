@@ -40,6 +40,12 @@ importers:
         specifier: ^7.6.12
         version: 7.6.13
 
+  packages/scrapers:
+    dependencies:
+      '@brique/core':
+        specifier: workspace:*
+        version: link:../core
+
 packages:
 
   '@drizzle-team/brocli@0.10.2':

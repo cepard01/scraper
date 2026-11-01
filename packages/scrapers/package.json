@@ -1,0 +1,12 @@
+{
+  "name": "@brique/scrapers",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "dependencies": {
+    "@brique/core": "workspace:*"
+  }
+}
