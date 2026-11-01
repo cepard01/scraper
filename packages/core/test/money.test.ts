@@ -41,6 +41,17 @@ describe('parsePriceBRL', () => {
     expect(parsePriceBRL('-R$ 100')).toEqual({ ok: false, reason: 'negativo' });
   });
 
+  it('recusa preco escrito com palavra de escala, que nao e decimal', () => {
+    expect(parsePriceBRL('R$ 2 mil')).toEqual({ ok: false, reason: 'not-a-price' });
+    expect(parsePriceBRL('1,5 mil')).toEqual({ ok: false, reason: 'not-a-price' });
+    expect(parsePriceBRL('R$ 3 mil')).toEqual({ ok: false, reason: 'not-a-price' });
+  });
+
+  it('ignora anotacao de pagamento no campo de preco', () => {
+    expect(parsePriceBRL('R$ 980 (aceito pix)')).toEqual({ ok: true, cents: 98_000 });
+    expect(parsePriceBRL('980,00 a vista')).toEqual({ ok: true, cents: 98_000 });
+  });
+
   it('rejeita acima do teto configurável', () => {
     expect(parsePriceBRL('R$ 2.500.000', { maxCents: 200_000_000 })).toEqual({ ok: false, reason: 'absurdo' });
     expect(parsePriceBRL('R$ 1.500.000', { maxCents: 200_000_000 })).toEqual({ ok: true, cents: 150_000_000 });
@@ -62,5 +73,10 @@ describe('formatBRL', () => {
 
   it('nao devolve NBSP entre o simbolo e o numero', () => {
     expect(formatBRL(123_456)).not.toContain('\u00a0');
+  });
+
+  it('devolve so ASCII, seja qual for a convencao do ICU', () => {
+    expect(formatBRL(123_456)).not.toMatch(/[^\x20-\x7e]/);
+    expect(formatBRL(-5_000)).not.toMatch(/[^\x20-\x7e]/);
   });
 });

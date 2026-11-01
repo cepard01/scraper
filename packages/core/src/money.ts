@@ -14,6 +14,9 @@ const REJECT_PREFIX: Array<[string, PriceReject]> = [
 
 const DEFAULT_MAX_CENTS = 200_000_000;
 
+// "R$ 2 mil" e "1,5 mil" virariam R$ 2,00 e R$ 1,50 sem esta guarda: um erro de 1000x silencioso
+const WORD_MULTIPLIER = /\b(mil|milhao|milhoes|kk)\b/;
+
 export function parsePriceBRL(input: string, opts: { maxCents?: Cents } = {}): PriceResult {
   const max = opts.maxCents ?? DEFAULT_MAX_CENTS;
   const raw = (input ?? '').trim();
@@ -24,6 +27,7 @@ export function parsePriceBRL(input: string, opts: { maxCents?: Cents } = {}): P
     if (lowered === word || lowered.startsWith(`${word} `)) return { ok: false, reason };
   }
   if (lowered.startsWith('-') || /\bmenos\b/.test(lowered)) return { ok: false, reason: 'negativo' };
+  if (WORD_MULTIPLIER.test(lowered)) return { ok: false, reason: 'not-a-price' };
 
   const digitsOnly = lowered
     .replace(/\s/g, '')
@@ -60,7 +64,7 @@ const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' 
 
 export function formatBRL(cents: Cents): string {
   const sign = cents < 0 ? '-' : '';
-  // ICU em pt-BR separa o símbolo do valor com NBSP (U+00A0); a tabela do Task 16 e o grep do operador precisam de espaço ASCII
-  const body = BRL.format(Math.abs(cents) / 100).replace(/\u00a0/g, ' ');
+  // ICU em pt-BR separa o símbolo do valor com um espaço não-ASCII (U+00A0 hoje; CLDR já migrou locates para U+202F)
+  const body = BRL.format(Math.abs(cents) / 100).replace(/[\u00a0\u2007\u202f\u2009]/g, ' ');
   return `${sign}${body}`;
 }
