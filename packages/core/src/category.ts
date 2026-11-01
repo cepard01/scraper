@@ -3,7 +3,7 @@ import { normalizeCase, stripSymbols } from './text';
 
 interface Rule { include: string[]; exclude: string[]; weight: number }
 
-export const CATEGORY_RULES: Record<Category, Rule> = {
+const RAW_RULES: Record<Category, Rule> = {
   celular: {
     include: ['celular', 'smartphone', 'iphone', 'galaxy', 'xiaomi', 'redmi', 'poco', 'motorola', 'moto g', 'asus zenfone', 'realme', 'nokia', 'lg k', 'oneplus'],
     exclude: ['capinha', 'capa para', 'pelicula', 'protetor', 'bateria para', 'carregador', 'suporte', 'fone', 'smartwatch', 'relojio', 'copiado', 'troco por'],
@@ -25,7 +25,7 @@ export const CATEGORY_RULES: Record<Category, Rule> = {
     weight: 26,
   },
   autopeca: {
-    include: ['peca', 'original', 'semi novo', 'para-choque', 'farol', 'lanterna', 'retrovisor', 'radiador', 'alternador',
+    include: ['peca', 'para-choque', 'farol', 'lanterna', 'retrovisor', 'radiador', 'alternador',
       'starter', 'cambio', 'embreagem', 'disco de freio', 'pastilha', 'amortecedor', 'mola', 'bomba', 'injetor',
       'motor ', 'cabeçote', 'turbina', 'paralampa', 'porta ', 'capô', 'capot', 'grade dianteira', 'bieleta', 'banda'],
     exclude: ['carro completo', 'vendo carro', 'vehicle', 'pneu de carro', 'ipva', 'documentação'],
@@ -36,7 +36,7 @@ export const CATEGORY_RULES: Record<Category, Rule> = {
 
 export interface BrandDef { canonical: string; aliases: string[] }
 
-export const BRANDS_BY_CATEGORY: Record<Category, BrandDef[]> = {
+const RAW_BRANDS: Record<Category, BrandDef[]> = {
   celular: [
     { canonical: 'apple', aliases: ['iphone', 'apple'] },
     { canonical: 'samsung', aliases: ['galaxy', 'samsung', 's21', 's22', 's23', 'a13', 'a34', 'a54'] },
@@ -82,6 +82,22 @@ export const BRANDS_BY_CATEGORY: Record<Category, BrandDef[]> = {
   ],
   outro: [],
 };
+
+const needle = (w: string): string => stripSymbols(normalizeCase(w));
+
+export const CATEGORY_RULES: Record<Category, Rule> = Object.fromEntries(
+  Object.entries(RAW_RULES).map(([c, r]) => [
+    c,
+    { include: r.include.map(needle), exclude: r.exclude.map(needle), weight: r.weight },
+  ]),
+) as Record<Category, Rule>;
+
+export const BRANDS_BY_CATEGORY: Record<Category, BrandDef[]> = Object.fromEntries(
+  Object.entries(RAW_BRANDS).map(([c, defs]) => [
+    c,
+    defs.map((d) => ({ canonical: d.canonical, aliases: d.aliases.map(needle) })),
+  ]),
+) as Record<Category, BrandDef[]>;
 
 export function classifyCategory(title: string, description: string): Category {
   const text = `${stripSymbols(normalizeCase(title))} ${stripSymbols(normalizeCase(description))}`;

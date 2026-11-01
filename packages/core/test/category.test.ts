@@ -38,6 +38,22 @@ describe('classifyCategory', () => {
     expect(classifyCategory('PlayStation 4 Slim 1TB com 2 controles', 'acompanha headset')).toBe('console');
     expect(classifyCategory('Notebook Dell Inspiron i5 8GB 256SSD', 'vai com mochila')).toBe('notebook');
   });
+
+  it('purga simbolo tambem na classificacao', () => {
+    expect(classifyCategory('LG-K10 32gb', '')).toBe('celular');
+  });
+
+  it('termo com hifen ou acento casa porque a agulha e normalizada', () => {
+    expect(classifyCategory('Para-choque Gol G5', '')).toBe('autopeca');
+    expect(classifyCategory('Cabeçote Fiat Uno 1.0', '')).toBe('autopeca');
+    expect(classifyCategory('Capô Palio', '')).toBe('autopeca');
+  });
+
+  it('acessorio vetado cai em outro, nao em autopeca', () => {
+    expect(classifyCategory('Controle PS4 Slim original', 'novo lacrado')).toBe('outro');
+    expect(classifyCategory('Carregador notebook Dell 65w', 'original')).toBe('outro');
+    expect(classifyCategory('Controle PS4 semi novo', '')).toBe('outro');
+  });
 });
 
 describe('matchBrand', () => {
