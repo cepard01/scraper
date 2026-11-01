@@ -33,6 +33,7 @@ describe('createHttp', () => {
     const res = await http('https://exemplo.invalid');
     expect(res.status).toBe(429);
     expect(calls).toBe(3);
+    expect(res.error).toBe('http');
   });
 
   it('json() faz parse do texto', async () => {
