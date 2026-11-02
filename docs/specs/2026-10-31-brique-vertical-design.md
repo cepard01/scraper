@@ -76,7 +76,7 @@ scraper/
       src/scheduler.ts
     web/                       Next.js (App Router, server components)
       src/app/...
-docs/superpowers/specs/        esta spec
+docs/specs/        esta spec
 tests/
   fixtures/<source>/*.json     payloads gravados, usados nos contract tests
   fixtures/feed-*.ts           "um dia" de anúncios sintéticos para golden test
