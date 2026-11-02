@@ -21,11 +21,16 @@ Passagem de execução (estado atual, o que vem a seguir, decisões abertas): `d
     pnpm smoke:meli  "iphone 12"  # exige MELI_ACCESS_TOKEN
     pnpm fixtures:record          # grava payload real para atualizar contract tests
 
+    pnpm buy -- "iPhone 12 128GB" --paid 980 --listing 42   # 980 = R$ 980,00; sem --listing exige --category
+    pnpm sell -- 7 --sold 1650 --platform meli               # imprime taxa, líquido, lucro e ROI
+    pnpm pnl [--month 2026-10] [--category celular]          # realizado; estoque sempre global
+
 ## Como ler a saída
 
 `R$/dia` é margem estimada dividida pela liquidez estimada — é o número que ordena a fila.
 `n` é o tamanho da amostra de comparáveis; `conf` é a confiança (§5.3 da spec).
 `n=0` ou `conf=low` significa referência fraca, não oportunidade melhor.
+Enquanto `deltaMode=fixed`, `R$/dia` e `margem` da fila seguem otimistas pelo `delta`; `pnl` é o que mede o resultado realizado.
 
 ## Estrutura
 
