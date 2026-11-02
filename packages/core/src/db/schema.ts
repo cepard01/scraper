@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { integer, text, real, sqliteTable, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
-import type { Category, Confidence, Cents, GateReason, Grade, ListingStatus, MonitorParams, SourceId, Valuation } from '../types';
+import type { Category, Confidence, Cents, GateReason, Grade, ListingStatus, MonitorParams, PurchaseStatus, SourceId, Valuation } from '../types';
 
 const ts = (name: string) => integer(name, { mode: 'timestamp_ms' });
 
@@ -132,3 +132,33 @@ export const settings = sqliteTable('setting', {
   value: text('value').notNull(),
   updatedAt: ts('updated_at').notNull(),
 });
+
+export const purchases = sqliteTable('purchase', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  listingId: integer('listing_id'),
+  fingerprintId: integer('fingerprint_id'),
+  label: text('label').notNull(),
+  category: text('category').$type<Category>().notNull(),
+  paidCents: integer('paid_cents').$type<Cents>().notNull(),
+  shippingInCents: integer('shipping_in_cents').$type<Cents>().notNull().default(0),
+  repairCents: integer('repair_cents').$type<Cents>().notNull().default(0),
+  otherCostsCents: integer('other_costs_cents').$type<Cents>().notNull().default(0),
+  feesInCents: integer('fees_in_cents').$type<Cents>().notNull().default(0),
+  refMedianCents: integer('ref_median_cents').$type<Cents | null>(),
+  boughtAt: ts('bought_at').notNull(),
+  status: text('status').$type<PurchaseStatus>().notNull().default('in_stock'),
+  notes: text('notes'),
+  createdAt: ts('created_at').notNull(),
+}, (t) => [index('i_purchase_status').on(t.status), index('i_purchase_fp').on(t.fingerprintId, t.category)]);
+
+export const sales = sqliteTable('sale', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  purchaseId: integer('purchase_id').notNull().references(() => purchases.id),
+  soldCents: integer('sold_cents').$type<Cents>().notNull(),
+  platform: text('platform').notNull(),
+  platformFeeCents: integer('platform_fee_cents').$type<Cents>().notNull(),
+  shippingOutCents: integer('shipping_out_cents').$type<Cents>().notNull().default(0),
+  otherCostsCents: integer('other_costs_cents').$type<Cents>().notNull().default(0),
+  soldAt: ts('sold_at').notNull(),
+  buyerRef: text('buyer_ref'),
+}, (t) => [uniqueIndex('u_sale_purchase').on(t.purchaseId), index('i_sale_time').on(t.soldAt)]);

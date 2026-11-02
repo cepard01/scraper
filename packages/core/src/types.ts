@@ -117,3 +117,18 @@ export interface OpportunityMath {
   score: number;
   breakdown: ScoreBreakdown;
 }
+
+export type PurchaseStatus = 'in_stock' | 'listed' | 'sold' | 'returned' | 'lost';
+
+export interface Purchase {
+  id: number; listingId: number | null; fingerprintId: number | null; label: string;
+  category: Category; paidCents: Cents; shippingInCents: Cents; repairCents: Cents;
+  otherCostsCents: Cents; feesInCents: Cents; refMedianCents: Cents | null;
+  boughtAt: Date; status: PurchaseStatus; notes: string | null;
+}
+
+export interface Sale {
+  id: number; purchaseId: number; soldCents: Cents; platform: string;
+  platformFeeCents: Cents; shippingOutCents: Cents; otherCostsCents: Cents;
+  soldAt: Date; buyerRef: string | null;
+}
