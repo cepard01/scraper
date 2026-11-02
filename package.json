@@ -14,8 +14,10 @@
     "smoke:meli": "tsx packages/scrapers/src/meli/smoke.ts"
   },
   "devDependencies": {
+    "@brique/core": "workspace:*",
     "@types/node": "^24.10.1",
     "drizzle-kit": "^0.31.11",
+    "drizzle-orm": "^0.45.4",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "vitest": "^5.0.5"

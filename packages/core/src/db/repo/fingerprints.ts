@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import type { Db } from '../client';
 import { fingerprints } from '../schema';
-import type { ParsedProduct } from '../../types';
+import type { Category, ParsedProduct } from '../../types';
 
 function seg(value: string | null): string {
   if (value === null) return '?';
@@ -53,4 +53,8 @@ export function getOrCreateFingerprint(db: Db, p: ParsedProduct): { id: number; 
   const row = selectFingerprint(db, key);
   if (!row) throw new Error(`fingerprint ${key} não está no banco depois do insert`);
   return row;
+}
+
+export function listFingerprintIdsByCategory(db: Db, category: Category): number[] {
+  return db.select({ id: fingerprints.id }).from(fingerprints).where(eq(fingerprints.category, category)).all().map((r) => r.id);
 }

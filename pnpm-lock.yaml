@@ -8,12 +8,18 @@ importers:
 
   .:
     devDependencies:
+      '@brique/core':
+        specifier: workspace:*
+        version: link:packages/core
       '@types/node':
         specifier: ^24.10.1
         version: 24.19.2
       drizzle-kit:
         specifier: ^0.31.11
         version: 0.31.11
+      drizzle-orm:
+        specifier: ^0.45.4
+        version: 0.45.4(@types/better-sqlite3@7.6.13)(better-sqlite3@13.0.3)
       tsx:
         specifier: ^4.23.15
         version: 4.23.15
@@ -45,6 +51,15 @@ importers:
       '@brique/core':
         specifier: workspace:*
         version: link:../core
+
+  packages/worker:
+    dependencies:
+      '@brique/core':
+        specifier: workspace:*
+        version: link:../core
+      '@brique/scrapers':
+        specifier: workspace:*
+        version: link:../scrapers
 
 packages:
 

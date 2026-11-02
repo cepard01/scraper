@@ -1,0 +1,9 @@
+{
+  "name": "@brique/worker",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@brique/core": "workspace:*",
+    "@brique/scrapers": "workspace:*"
+  }
+}

@@ -1,0 +1,9 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`feed day1 > ranqueia os finalistas e congela a ordem 1`] = `
+[
+  "DEAL-A",
+  "DEAL-D",
+  "DEAL-C",
+]
+`;
