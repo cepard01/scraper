@@ -48,6 +48,9 @@ describe('confidenceFor', () => {
   it('espelha a guarda de amostra da spec', () => {
     expect(confidenceFor(9, false)).toBe('high');
     expect(confidenceFor(6, false)).toBe('med');
+    // a fronteira do med e 5: `sampleSize >= 5` -> `>= 6` passava verde com 9/6/4/2
+    // porque nenhum outro teste do plano cai com exatamente cinco comparaveis mantidos.
+    expect(confidenceFor(5, false)).toBe('med');
     expect(confidenceFor(4, false)).toBe('low');
     expect(confidenceFor(2, false)).toBeNull();
   });
@@ -78,6 +81,21 @@ describe('valueFingerprint', () => {
     expect(res.valuation.fairGrossCents).toBe(Math.round(res.valuation.medianCents! * 0.85));
     expect(res.valuation.confidence).toBe('high');
     expect(res.comparables.some((c) => c.role === 'trimmed')).toBe(true);
+  });
+
+  it('o role e do anuncio, nao de "existe um aparado em algum lugar"', () => {
+    const fp = seedComparables([90_000, 95_000, 98_000, 100_000, 102_000, 105_000, 108_000, 110_000, 120_000, 900_000]);
+    const res = valueFingerprint(db, fp.id, { settings: DEFAULT_SETTINGS, now: NOW, provider: localAskingProvider, category: 'celular' });
+    // mediana e sampleSize nascem de kept, nunca desta lista: `flags[i]` -> `flags[i + 1]`
+    // desloca o rotulo dos dez anuncios com a matematica intacta e o some() de cima verde.
+    // O que o painel grava em comparable_ref e o rotulo, entao ele e que tem de ser preso.
+    const roleDe = (ask: number) => res.comparables.find((c) => c.askingCents === ask)!.role;
+    expect(res.comparables).toHaveLength(10);
+    expect(new Set(res.comparables.map((c) => c.listingId)).size).toBe(10);
+    expect(roleDe(90_000)).toBe('trimmed');   // a cauda de baixo
+    expect(roleDe(900_000)).toBe('trimmed');  // a cauda de cima
+    expect(roleDe(102_000)).toBe('kept');
+    expect(roleDe(120_000)).toBe('kept');     // vizinho do aparado: decide por indice, nao por valor
   });
 
   it('n<3: sampleGate insufficient, mas fair e calculado igual', () => {

@@ -46,6 +46,15 @@ describe('trimOutliers', () => {
     expect(trimmed).toEqual([30_000]);
   });
 
+  it('com n<7 a guarda corta os dois lados: 1/3 abaixo da mediana tambem sai', () => {
+    // o teste de cima so exercita a cauda alta: 500 >= 1100/3. Aqui a mediana e 3.100 e
+    // o 300 esta abaixo de 3.100/3, entao trocar a guarda por apenas `v <= med * 3`
+    // (o mutante que a revisao mediu como VIVEU) faz este it() gritar.
+    const { kept, trimmed } = trimOutliers([3_000, 3_100, 3_200, 3_300, 300]);
+    expect(trimmed).toEqual([300]);
+    expect(kept).toEqual([3_000, 3_100, 3_200, 3_300]);
+  });
+
   it('amostra identica nao se autodevora', () => {
     const { kept, trimmed } = trimOutliers([10_000, 10_000, 10_000]);
     expect(kept).toHaveLength(3);
@@ -69,6 +78,22 @@ describe('keepFlags', () => {
     expect(keepFlags([])).toEqual([]);
     expect(keepFlags([5_000])).toEqual([true]);
     expect(keepFlags([500, 1_000, 1_100, 1_200, 30_000])).toEqual([true, true, true, true, false]);
+  });
+
+  it('com n=7 o percentil de 10% e floor(0,7) = 0: nenhum indice e aparado', () => {
+    // n = 7, 8 e 9 sao as unicas amostras em que floor e ceil de ratio 0.1 discordam
+    // (floor 0 x ceil 1). Sem este it(), `Math.floor` -> `Math.ceil` no fonte passava
+    // verde e um conjunto de sete comparaveis perdia as duas pontas por uma edicao.
+    const sete = [1_000, 10_000, 10_500, 11_000, 11_500, 12_000, 90_000];
+    expect(keepFlags(sete, 0.1)).toEqual([true, true, true, true, true, true, true]);
+    expect(keepFlags([...sete, 13_000], 0.1)).toHaveLength(8);
+    expect(keepFlags([...sete, 13_000], 0.1).every(Boolean)).toBe(true);
+    expect(keepFlags([...sete, 13_000, 14_000], 0.1).some((f) => !f)).toBe(false);
+    // e o outro lado da mesma fronteira, ja medido acima: em n = 10 o cut vira 1.
+    expect(keepFlags([...sete, 13_000, 14_000, 15_000], 0.1).filter((f) => !f)).toHaveLength(2);
+    // registrado: com n >= 7 o ramo ativo e o de percentil, entao a guarda absoluta de
+    // 3x nao se aplica — o 90.000 do sete sobrevive por projeto, nao por descuido.
+    expect(keepFlags(sete, 0.1)[6]).toBe(true);
   });
 
   it('trimOutliers e keepFlags sao a mesma regra vista por angulos diferentes', () => {
