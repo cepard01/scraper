@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "7e17298e-c359-4f67-822f-abf5f1b848c1",
+  "id": "66ffe8c0-1fd1-4dd9-91d3-90f5c146d677",
   "prevId": "1fe64203-a2bc-400a-b696-94f37bbc0b29",
   "tables": {
     "comparable_ref": {
@@ -677,6 +677,13 @@
           "notNull": true,
           "autoincrement": false,
           "default": "'in_stock'"
+        },
+        "closed_at": {
+          "name": "closed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         },
         "notes": {
           "name": "notes",

@@ -72,7 +72,7 @@ describe('repo/giro', () => {
 
   it('venda em compra returned é recusada', () => {
     const id = insertPurchase(db, base);
-    closePurchase(db, id, 'returned');
+    closePurchase(db, id, 'returned', D('2026-10-05T12:00:00Z'));
     expect(() => recordSale(db, { purchaseId: id, soldCents: 165_000, platform: 'meli', soldAt: D('2026-10-09T12:00:00Z') }, settings()))
       .toThrowError(/returned/);
   });
@@ -112,11 +112,28 @@ describe('repo/giro', () => {
   it('closePurchase não sobrescreve compra vendida nem ressuscita terminal', () => {
     const id = insertPurchase(db, base);
     recordSale(db, { purchaseId: id, soldCents: 165_000, platform: 'meli', soldAt: D('2026-10-09T12:00:00Z') }, settings());
-    expect(() => closePurchase(db, id, 'lost')).toThrowError(/vendida/);
+    expect(() => closePurchase(db, id, 'lost', D('2026-10-10T12:00:00Z'))).toThrowError(/vendida/);
 
     const outro = insertPurchase(db, { ...base, label: 'devolvido' });
-    closePurchase(db, outro, 'returned');
-    expect(() => closePurchase(db, outro, 'lost')).toThrowError(/returned/);
+    const fechamento = D('2026-10-07T12:00:00Z');
+    closePurchase(db, outro, 'returned', fechamento);
+    expect(getPurchase(db, outro)!.closedAt).toEqual(fechamento);
+    expect(() => closePurchase(db, outro, 'lost', D('2026-10-08T12:00:00Z'))).toThrowError(/returned/);
+  });
+
+  it('listed não fecha o giro: closedAt continua null', () => {
+    const id = insertPurchase(db, base);
+    closePurchase(db, id, 'listed', D('2026-10-03T12:00:00Z'));
+
+    const p = getPurchase(db, id)!;
+    expect(p.status).toBe('listed');
+    expect(p.closedAt).toBeNull();
+  });
+
+  it('recordSale não grava closed_at: a data de sold é sold_at', () => {
+    const id = insertPurchase(db, base);
+    recordSale(db, { purchaseId: id, soldCents: 165_000, platform: 'meli', soldAt: D('2026-10-09T12:00:00Z') }, settings());
+    expect(getPurchase(db, id)!.closedAt).toBeNull();
   });
 
   it('centavo negativo é recusado na entrada, não absinto em saldo', () => {

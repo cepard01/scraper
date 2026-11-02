@@ -136,11 +136,17 @@ export function listInventory(db: Db, now: Date): InventoryRow[] {
     }));
 }
 
-export function closePurchase(db: Db, purchaseId: number, status: 'listed' | 'returned' | 'lost'): void {
+// `closedAt` guarda quando este status foi registrado. `sold` não usa esta coluna — a data
+// dele é `soldAt`, e duplicar a mesma informação em duas colunas é criar o dia em que elas
+// discordam. O P&L só lê `closedAt` em returned|lost, que é onde a perda precisa de mês.
+export function closePurchase(db: Db, purchaseId: number, status: 'listed' | 'returned' | 'lost', at: Date): void {
   const p = getPurchase(db, purchaseId);
   if (!p) throw new Error(`compra ${purchaseId} não existe`);
   if (p.status === 'sold') throw new Error(`compra ${purchaseId} foi vendida; o status dela é da venda`);
   if (p.status === 'returned' || p.status === 'lost') throw new Error(`compra ${purchaseId} já está em "${p.status}"`);
   if (status === 'listed' && p.status !== 'in_stock') throw new Error(`compra ${purchaseId} não está em_stock para ser listada`);
-  db.update(purchases).set({ status }).where(eq(purchases.id, purchaseId)).run();
+  // `listed` não fecha giro: o item continua em estoque, então `closedAt` fica nulo e só
+  // returned|lost recebem data. Para `sold` a data é `soldAt`, não esta coluna.
+  const patch = status === 'listed' ? { status } : { status, closedAt: at };
+  db.update(purchases).set(patch).where(eq(purchases.id, purchaseId)).run();
 }

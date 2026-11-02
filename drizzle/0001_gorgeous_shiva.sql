@@ -12,6 +12,7 @@ CREATE TABLE `purchase` (
 	`ref_median_cents` integer,
 	`bought_at` integer NOT NULL,
 	`status` text DEFAULT 'in_stock' NOT NULL,
+	`closed_at` integer,
 	`notes` text,
 	`created_at` integer NOT NULL
 );

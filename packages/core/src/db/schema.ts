@@ -147,6 +147,7 @@ export const purchases = sqliteTable('purchase', {
   refMedianCents: integer('ref_median_cents').$type<Cents | null>(),
   boughtAt: ts('bought_at').notNull(),
   status: text('status').$type<PurchaseStatus>().notNull().default('in_stock'),
+  closedAt: ts('closed_at'),
   notes: text('notes'),
   createdAt: ts('created_at').notNull(),
 }, (t) => [index('i_purchase_status').on(t.status), index('i_purchase_fp').on(t.fingerprintId, t.category)]);

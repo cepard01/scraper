@@ -124,7 +124,7 @@ export interface Purchase {
   id: number; listingId: number | null; fingerprintId: number | null; label: string;
   category: Category; paidCents: Cents; shippingInCents: Cents; repairCents: Cents;
   otherCostsCents: Cents; feesInCents: Cents; refMedianCents: Cents | null;
-  boughtAt: Date; status: PurchaseStatus; notes: string | null;
+  boughtAt: Date; status: PurchaseStatus; closedAt: Date | null; notes: string | null;
 }
 
 export interface Sale {
