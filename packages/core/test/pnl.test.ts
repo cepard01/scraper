@@ -192,6 +192,17 @@ describe('core/pnl', () => {
     expect(s.inventoryValueCents).toBe(100_000);
   });
 
+  it('pnlSummary respeita o periodo mesmo sem filtro de categoria', () => {
+    const a = buy({ label: 'a' });
+    sell(a, { soldAt: D('2026-10-05T12:00:00Z') });
+    const b = buy({ label: 'b' });
+    sell(b, { soldAt: D('2026-11-05T12:00:00Z') });
+
+    const s = pnlSummary(db, { from: D('2026-10-01T00:00:00Z'), to: D('2026-10-31T23:59:59.999Z'), tz: TZ });
+    expect(s.soldCount).toBe(1);
+    expect(s.revenueCents).toBe(100_000);
+  });
+
   it('stalePurchases usa > metaStaleDays e ignora vendido', () => {
     buy({ label: 'encalhado', boughtAt: D('2026-10-01T12:00:00Z') });
     buy({ label: 'novo', boughtAt: D('2026-10-31T12:00:00Z') });
