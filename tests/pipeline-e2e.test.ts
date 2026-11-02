@@ -33,7 +33,7 @@ describe('feed day1', () => {
         toListingInput(raw) { return raw.payload as never; },
       },
       ai, comparables: localAskingProvider, now: () => NOW,
-    }, { id: monitorId, label: 'day1', source: 'olx', query: 'day1', category: null, params: {}, intervalMinutes: 30, active: true, lastRunAt: null, lastYield: 0 });
+    }, { id: monitorId, label: 'day1', source: 'olx', query: 'day1', category: null, params: {}, intervalMinutes: 30, active: true, lastRunAt: null, lastYield: 0, mutedUntil: null });
 
     expect(ai.calls).toBe(0);
     expect(summary.created).toBe(DAY1.length);

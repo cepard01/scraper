@@ -7,7 +7,7 @@ const adapter = createOlxAdapter({ http });
 const monitor = {
   id: 0, label: 'smoke', source: 'olx' as const, query: process.argv[2] ?? 'iphone 12',
   category: 'celular' as const, params: { pages: 2 }, intervalMinutes: 30, active: true,
-  lastRunAt: null, lastYield: 0,
+  lastRunAt: null, lastYield: 0, mutedUntil: null,
 };
 
 const health = await adapter.health();

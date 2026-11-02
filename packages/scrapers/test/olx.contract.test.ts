@@ -12,7 +12,7 @@ const html = readFileSync('tests/fixtures/olx/search-no-blob.html', 'utf8');
 const monitor: SearchMonitor = {
   id: 1, label: 'iphone 12', source: 'olx', query: 'iphone 12', category: 'celular',
   params: { uf: 'PR', minCents: 30_000, maxCents: 400_000 }, intervalMinutes: 30,
-  active: true, lastRunAt: null, lastYield: 0,
+  active: true, lastRunAt: null, lastYield: 0, mutedUntil: null,
 };
 
 describe('findAds', () => {

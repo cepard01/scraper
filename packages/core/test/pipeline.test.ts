@@ -24,7 +24,7 @@ const NOW = new Date('2026-10-05T12:00:00Z');
 
 const monitorRow = (id: number, query = 'iphone 12'): SearchMonitor => ({
   id, label: query, source: 'olx', query, category: 'celular', params: {},
-  intervalMinutes: 30, active: true, lastRunAt: null, lastYield: 0,
+  intervalMinutes: 30, active: true, lastRunAt: null, lastYield: 0, mutedUntil: null,
 });
 
 function fakeAdapter(items: ListingInput[]): SourceAdapter {

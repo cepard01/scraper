@@ -15,6 +15,7 @@ export const searchMonitors = sqliteTable('search_monitor', {
   active: integer('active', { mode: 'boolean' }).notNull().default(true),
   lastRunAt: ts('last_run_at'),
   lastYield: integer('last_yield').notNull().default(0),
+  mutedUntil: ts('muted_until'),
   createdAt: ts('created_at').notNull(),
   updatedAt: ts('updated_at').notNull(),
 });
@@ -126,6 +127,18 @@ export const runs = sqliteTable('run', {
   aiCalls: integer('ai_calls').notNull().default(0),
   error: text('error'),
 });
+
+export const dealAlerts = sqliteTable('deal_alert', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  opportunityId: integer('opportunity_id').notNull().references(() => opportunities.id),
+  listingId: integer('listing_id').notNull(),
+  channel: text('channel').$type<'ntfy' | 'digest'>().notNull().default('ntfy'),
+  alertedAtCents: integer('alerted_at_cents').$type<Cents>().notNull(),
+  deliveredAt: ts('delivered_at'),
+  status: text('status').$type<'pending' | 'sent' | 'failed' | 'suppressed'>().notNull().default('pending'),
+  reason: text('reason'),
+  createdAt: ts('created_at').notNull(),
+}, (t) => [index('i_alert_listing').on(t.listingId, t.createdAt)]);
 
 export const settings = sqliteTable('setting', {
   key: text('key').primaryKey(),

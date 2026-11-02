@@ -10,7 +10,7 @@ const adapter = createMeliAdapter({ http, token: cfg.meliToken, unit: cfg.meliUn
 const monitor: SearchMonitor = {
   id: 0, label: 'smoke', source: 'meli', query: process.argv[2] ?? 'iphone 12 128gb',
   category: 'celular', params: { pages: 1 }, intervalMinutes: 30, active: true,
-  lastRunAt: null, lastYield: 0,
+  lastRunAt: null, lastYield: 0, mutedUntil: null,
 };
 
 console.log('available', adapter.available, 'health', await adapter.health());

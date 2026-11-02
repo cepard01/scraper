@@ -15,6 +15,13 @@
       "when": 1793628823280,
       "tag": "0001_gorgeous_shiva",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793631636713,
+      "tag": "0002_lucky_ares",
+      "breakpoints": true
     }
   ]
 }

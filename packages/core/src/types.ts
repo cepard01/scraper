@@ -59,6 +59,7 @@ export interface SearchMonitor {
   active: boolean;
   lastRunAt: Date | null;
   lastYield: number;
+  mutedUntil: Date | null;
 }
 
 export interface Settings {
@@ -116,6 +117,21 @@ export interface OpportunityMath {
   liquidityDays: number;
   score: number;
   breakdown: ScoreBreakdown;
+}
+
+export type AlertChannel = 'ntfy' | 'digest';
+export type AlertStatus = 'pending' | 'sent' | 'failed' | 'suppressed';
+
+export interface DealAlert {
+  id: number;
+  opportunityId: number;
+  listingId: number;
+  channel: AlertChannel;
+  alertedAtCents: Cents;
+  deliveredAt: Date | null;
+  status: AlertStatus;
+  reason: string | null;
+  createdAt: Date;
 }
 
 export type PurchaseStatus = 'in_stock' | 'listed' | 'sold' | 'returned' | 'lost';
