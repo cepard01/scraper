@@ -1,10 +1,15 @@
 const sortedCopy = (values: number[]): number[] => [...values].sort((a, b) => a - b);
 
-export function medianCents(values: number[]): number | null {
+export function median(values: number[]): number | null {
   if (values.length === 0) return null;
   const s = sortedCopy(values);
   const mid = Math.floor(s.length / 2);
-  return s.length % 2 === 0 ? Math.round((s[mid - 1]! + s[mid]!) / 2) : s[mid]!;
+  return s.length % 2 === 0 ? (s[mid - 1]! + s[mid]!) / 2 : s[mid]!;
+}
+
+export function medianCents(values: number[]): number | null {
+  const m = median(values);
+  return m === null ? null : Math.round(m);
 }
 
 export function quantile(values: number[], q: number): number | null {

@@ -3,6 +3,7 @@ import type { ComparablesProvider } from './comparables';
 import type { Category, Confidence, Settings, Valuation } from '../types';
 import { keepFlags, medianCents, quantile } from './median';
 import { liquidityFor } from './liquidity';
+import { deltaFor } from './delta';
 
 export interface ValueOpts {
   settings: Settings;
@@ -39,7 +40,7 @@ export function valueFingerprint(db: Db, fingerprintId: number, opts: ValueOpts)
   const comparables = raw.map((c, i) => ({ listingId: c.listingId, askingCents: c.askingCents, role: flags[i] ? 'kept' as const : 'trimmed' as const }));
   const median = medianCents(kept);
 
-  const delta = opts.settings.delta;
+  const delta = deltaFor(db, opts.category, opts.settings).delta;
   const fairGross = median === null ? null : Math.round(median * delta);
   const liq = liquidityFor(db, fingerprintId, opts.category, opts.settings, opts.now);
   const confidence = confidenceFor(kept.length, useAgnostic) ?? 'low';
