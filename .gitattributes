@@ -1,0 +1,5 @@
+# O repo é LF por dentro (os blobs já eram); sem esta linha o checkout de `main`
+# escreve CRLF pelo `core.autocrlf` do ambiente, e qualquer `pnpm test` regrava os
+# `.snap` em LF — o que deixa a árvore phantom-dirty e faz a verificação por bytes
+# entre worktree e `main` falhar. `eol=lf` alinha o working tree com os blobs.
+* text=auto eol=lf
