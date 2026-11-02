@@ -1,0 +1,34 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`giro CLI: buy > registra a compra e congela o recibo com preco formatado 1`] = `
+"compra #1 registrada
+item: iPhone 12 128GB
+categoria: celular
+pago: R$ 980,00
+anuncio: #1
+fingerprint: #1
+ref: R$ 1.200,00 (valuation do anuncio)"
+`;
+
+exports[`giro CLI: pnl > banco vazio imprime zeros legiveis, nao NaN 1`] = `
+"P&L (tudo)
+realizado: R$ 0,00
+receita: R$ 0,00
+custo: R$ 0,00
+roi: n/d
+vendas: 0
+dias medios: n/d
+estoque: R$ 0,00 (0 itens)"
+`;
+
+exports[`giro CLI: sell > registra a venda e congela o recibo com taxa, liquido, lucro e ROI 1`] = `
+"venda da compra #1 registrada
+item: iPhone 12 128GB
+vendido: R$ 1.650,00
+plataforma: meli
+taxa: R$ 264,00
+liquido: R$ 1.386,00
+lucro: R$ 406,00
+roi: 41,4%
+dias: 8"
+`;

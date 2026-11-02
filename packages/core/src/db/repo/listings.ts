@@ -87,6 +87,10 @@ export function upsertFromSource(db: Db, input: ListingInput, opts: UpsertOpts):
   return { id: existing.id, transition };
 }
 
+export function getListing(db: Db, listingId: number) {
+  return db.select().from(listings).where(eq(listings.id, listingId)).get() ?? null;
+}
+
 export function setStatus(db: Db, listingId: number, status: ListingStatus): void {
   db.update(listings).set({ status }).where(eq(listings.id, listingId)).run();
 }

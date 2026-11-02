@@ -55,6 +55,10 @@ export function getOrCreateFingerprint(db: Db, p: ParsedProduct): { id: number; 
   return row;
 }
 
+export function getFingerprintById(db: Db, id: number) {
+  return db.select().from(fingerprints).where(eq(fingerprints.id, id)).get() ?? null;
+}
+
 export function listFingerprintIdsByCategory(db: Db, category: Category): number[] {
   return db.select({ id: fingerprints.id }).from(fingerprints).where(eq(fingerprints.category, category)).all().map((r) => r.id);
 }

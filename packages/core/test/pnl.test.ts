@@ -175,6 +175,23 @@ describe('core/pnl', () => {
     expect(stats[1]!.realizedCents).toBe(10_000);
   });
 
+  it('resumo por categoria nao soma a outra categoria, mas o estoque continua global', () => {
+    const celular = buy();
+    sell(celular);
+    const notebook = buy({ label: 'Notebook', category: 'notebook', paidCents: 100_000 });
+    sell(notebook, { soldCents: 110_000 });
+    buy({ label: 'parado', category: 'notebook', paidCents: 100_000 });
+
+    const s = pnlSummary(db, { tz: TZ, category: 'celular' });
+    expect(s.revenueCents).toBe(100_000);
+    expect(s.costCents).toBe(80_000);
+    expect(s.realizedCents).toBe(20_000);
+    expect(s.soldCount).toBe(1);
+    expect(s.byMonth).toEqual([{ month: '2026-10', revenueCents: 100_000, costCents: 80_000, realizedCents: 20_000, soldCount: 1 }]);
+    expect(s.inventoryCount).toBe(1);
+    expect(s.inventoryValueCents).toBe(100_000);
+  });
+
   it('stalePurchases usa > metaStaleDays e ignora vendido', () => {
     buy({ label: 'encalhado', boughtAt: D('2026-10-01T12:00:00Z') });
     buy({ label: 'novo', boughtAt: D('2026-10-31T12:00:00Z') });

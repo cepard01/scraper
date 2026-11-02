@@ -119,8 +119,10 @@ export interface PnlSummary {
 // roiPct = margin / totalCost, não / soldCents: a pergunta é "por real emperrado, quanto
 // voltou", e totalCost é o que estava emperrado. Divisão por zero é `null`, nunca 0 — um
 // `roiPct: 0` num mês sem venda seria uma afirmação falsa.
-export function pnlSummary(db: Db, opts: { from?: Date; to?: Date; tz: string }): PnlSummary {
-  const rows = realizedRows(db).filter((r) => inPeriod(r.soldAt, opts.from, opts.to));
+export function pnlSummary(db: Db, opts: { from?: Date; to?: Date; tz: string; category?: Category }): PnlSummary {
+  const rows = realizedRows(db)
+    .filter((r) => inPeriod(r.soldAt, opts.from, opts.to))
+    .filter((r) => opts.category === undefined || r.category === opts.category);
 
   let revenueCents = 0;
   let costCents = 0;
