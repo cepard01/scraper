@@ -3,6 +3,7 @@
 Caça e classificação de oportunidades de revenda em marketplace brasileiro.
 Spec: `docs/specs/2026-10-31-brique-vertical-design.md`
 Planos: `docs/plans/`
+Passagem de execução (estado atual, o que vem a seguir, decisões abertas): `docs/HANDOFF-2026-11-02.md`
 
 ## Rodar
 
