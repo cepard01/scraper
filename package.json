@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.base.json && tsc --noEmit -p packages/core/tsconfig.json",
     "worker": "tsx packages/worker/src/index.ts",
     "db:migrate": "tsx packages/core/src/db/migrate.ts",
+    "seed:demo": "tsx scripts/seed-demo.ts",
     "fixtures:record": "tsx scripts/record-fixtures.ts",
     "smoke:olx": "tsx packages/scrapers/src/olx/smoke.ts",
     "smoke:meli": "tsx packages/scrapers/src/meli/smoke.ts"
