@@ -152,6 +152,28 @@ export function findComparables(
     .map((r) => ({ listingId: r.id, askingCents: r.askingCents }));
 }
 
+export function findRecentCrossSource(
+  db: Db,
+  source: SourceId,
+  since: Date,
+  categoryFingerprints: number[],
+): { listingId: number; title: string; askingCents: number }[] {
+  if (categoryFingerprints.length === 0) return [];
+  return db.select({
+      listingId: listings.id,
+      title: listings.title,
+      askingCents: listings.askingCents,
+    })
+    .from(listings)
+    .where(and(
+      ne(listings.source, source),
+      gte(listings.lastSeenAt, since),
+      isNull(listings.dupeOf),
+      inArray(listings.fingerprintId, categoryFingerprints),
+    ))
+    .all();
+}
+
 export function attachDupe(db: Db, listingId: number, dupeOfId: number): void {
   db.update(listings).set({ dupeOf: dupeOfId }).where(eq(listings.id, listingId)).run();
 }

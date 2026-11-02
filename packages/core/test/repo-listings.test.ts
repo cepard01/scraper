@@ -2,7 +2,7 @@ import { count, eq } from 'drizzle-orm';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { openDb, migrateDb } from '../src/db/client';
 import type { Db } from '../src/db/client';
-import { upsertFromSource, markGone, findComparables, setFingerprint, setStatus, attachDupe } from '../src/db/repo/listings';
+import { upsertFromSource, markGone, findComparables, findRecentCrossSource, setFingerprint, setStatus, attachDupe } from '../src/db/repo/listings';
 import { createMonitor } from '../src/db/repo/monitors';
 import { fingerprints, listings, pricePoints } from '../src/db/schema';
 import type { ListingInput, ListingStatus } from '../src/types';
@@ -189,5 +189,40 @@ describe('markGone / findComparables', () => {
 
     const comps = findComparables(db, generico128, { windowDays: 90, variantAgnostic: true, now: new Date('2026-10-06T12:00:00Z') });
     expect(comps.map((c) => c.askingCents)).toEqual([98_000]);
+  });
+});
+
+describe('findRecentCrossSource', () => {
+  const desde = new Date('2026-10-04T00:00:00Z');
+  const seed = (over: Partial<ListingInput>, fingerprintId: number, seenAt: string): number =>
+    upsertFromSource(db, input(over), { parserVersion: 'p-1', fingerprintId, grade: 'B', seenAt: new Date(seenAt) }).id;
+
+  it('só vem da outra fonte, dentro da janela e de um fingerprint monitorado', () => {
+    const alvo = fp(db, { key: 'k-alvo' });
+    const outro = fp(db, { key: 'k-outro' });
+    const bom = seed({ source: 'meli', externalId: 'm-bom', title: 'iPhone 12 128gb Desbloqueado', askingCents: 97_000 }, alvo, '2026-10-05T12:00:00Z');
+    seed({ source: 'olx', externalId: 'o-mesma-fonte' }, alvo, '2026-10-05T12:00:00Z');
+    seed({ source: 'meli', externalId: 'm-fora-do-fp' }, outro, '2026-10-05T12:00:00Z');
+    seed({ source: 'meli', externalId: 'm-fora-da-janela' }, alvo, '2026-10-01T12:00:00Z');
+
+    expect(findRecentCrossSource(db, 'olx', desde, [alvo])).toEqual([
+      { listingId: bom, title: 'iPhone 12 128gb Desbloqueado', askingCents: 97_000 },
+    ]);
+  });
+
+  it('quem já foi marcado como duplicata não volta como candidato', () => {
+    const alvo = fp(db, { key: 'k-dupe' });
+    const a = seed({ source: 'meli', externalId: 'm-a' }, alvo, '2026-10-05T12:00:00Z');
+    const b = seed({ source: 'meli', externalId: 'm-b' }, alvo, '2026-10-05T12:00:00Z');
+    attachDupe(db, b, a);
+
+    expect(findRecentCrossSource(db, 'olx', desde, [alvo]).map((r) => r.listingId)).toEqual([a]);
+  });
+
+  it('sem fingerprint monitorado a consulta devolve vazio, não um IN () no SQL', () => {
+    const alvo = fp(db, { key: 'k-vazio' });
+    seed({ source: 'meli', externalId: 'm-so-fp' }, alvo, '2026-10-05T12:00:00Z');
+
+    expect(findRecentCrossSource(db, 'olx', desde, [])).toEqual([]);
   });
 });

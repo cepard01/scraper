@@ -6,7 +6,7 @@ import { comparableRefs, fingerprints, listings } from '../src/db/schema';
 import { getOrCreateFingerprint, fingerprintKey } from '../src/db/repo/fingerprints';
 import { insertValuation, latestValuationFor } from '../src/db/repo/valuations';
 import { insertOpportunity, listShortlistedRanked } from '../src/db/repo/opportunities';
-import { upsertFromSource } from '../src/db/repo/listings';
+import { upsertFromSource, attachDupe } from '../src/db/repo/listings';
 import { createMonitor } from '../src/db/repo/monitors';
 import type { ListingInput, ListingStatus, OpportunityMath, ParsedProduct, Valuation } from '../src/types';
 
@@ -218,5 +218,25 @@ describe('opportunities', () => {
     const outro = getOrCreateFingerprint(db, { ...product, variant: '256gb' });
     expect(() => insertValuation(db, fp.id, valuation(outro.id, {}), [])).toThrow(/fingerprint/i);
     expect(latestValuationFor(db, outro.id)).toBeNull();
+  });
+
+  it('rank deixa fora a duplicata cross-source, só o sobrevivente aparece', () => {
+    const fp = getOrCreateFingerprint(db, product);
+    const sobrevivente = upsertFromSource(db, { ...input('meli-1', 90_000), source: 'meli' }, { parserVersion: 'meli-1', fingerprintId: fp.id, grade: 'B', seenAt: new Date('2026-10-01T12:00:00Z') });
+    const duplicata = upsertFromSource(db, input('olx-1', 91_000), { parserVersion: 'olx-1', fingerprintId: fp.id, grade: 'B', seenAt: new Date('2026-10-01T12:00:00Z') });
+    insertOpportunity(db, sobrevivente.id, math(90_000, 0.5), { valuationId: null, gatePassed: true, gateReason: 'ok', createdAt: new Date('2026-10-01T12:00:00Z') });
+    insertOpportunity(db, duplicata.id, math(91_000, 0.5), { valuationId: null, gatePassed: true, gateReason: 'ok', createdAt: new Date('2026-10-01T12:00:00Z') });
+    attachDupe(db, duplicata.id, sobrevivente.id);
+
+    expect(listShortlistedRanked(db, 10).map((r) => r.externalId)).toEqual(['meli-1']);
+  });
+
+  it('insertValuation faz rollback quando um comparavel nao existe', () => {
+    const fp = getOrCreateFingerprint(db, product);
+    expect(() => insertValuation(db, fp.id, valuation(fp.id, {}), [
+      { listingId: 999_999, askingCents: 150_000, role: 'kept' },
+    ])).toThrow();
+    expect(latestValuationFor(db, fp.id)).toBeNull();
+    expect(db.select().from(comparableRefs).all()).toHaveLength(0);
   });
 });
