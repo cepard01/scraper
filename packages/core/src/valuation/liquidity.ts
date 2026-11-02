@@ -24,7 +24,7 @@ export function liquidityFor(
     .all();
 
   if (ownRows.length >= OWN_MIN_SALES) {
-    const spans = ownRows.map((r) => Math.max(1, Math.round((r.soldAt.getTime() - r.boughtAt.getTime()) / DAY_MS)));
+    const spans = ownRows.map((r) => Math.round((r.soldAt.getTime() - r.boughtAt.getTime()) / DAY_MS));
     const dias = Math.round(median(spans)!);
     return { days: Math.min(Math.max(dias, 1), 120), source: 'own' };
   }
@@ -43,7 +43,7 @@ export function liquidityFor(
     .all();
 
   if (rows.length >= 5) {
-    const spans = rows.map((r) => Math.max(1, Math.round((r.last.getTime() - r.first.getTime()) / DAY_MS)));
+    const spans = rows.map((r) => Math.round((r.last.getTime() - r.first.getTime()) / DAY_MS));
     const avg = Math.round(spans.reduce((a, b) => a + b, 0) / spans.length);
     return { days: Math.min(Math.max(avg, 1), 120), source: 'market' };
   }
