@@ -20,6 +20,7 @@ const addRun = (over: Partial<{ fetched: number; created: number; unmatched: num
     rejected: over.rejected ?? {},
     unmatched: over.unmatched ?? 500,
     aiCalls: 0,
+    alerts: 0,
   });
 };
 
@@ -90,7 +91,7 @@ describe('checkSourceHealth', () => {
     for (let i = 0; i < 3; i++) {
       const at = new Date(Date.UTC(2026, 9, 2, 12, i));
       const id = startRun(db, meli, at);
-      finishRun(db, id, at, { outcome: 'ok', fetched: 10, created: 0, repriced: 0, unchanged: 0, rejected: {}, unmatched: 0, aiCalls: 0 });
+      finishRun(db, id, at, { outcome: 'ok', fetched: 10, created: 0, repriced: 0, unchanged: 0, rejected: {}, unmatched: 0, aiCalls: 0, alerts: 0 });
     }
     expect(checkSourceHealth(db, 'olx').degraded).toBe(false);
   });

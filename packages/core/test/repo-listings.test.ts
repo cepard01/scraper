@@ -2,7 +2,7 @@ import { count, eq } from 'drizzle-orm';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { openDb, migrateDb } from '../src/db/client';
 import type { Db } from '../src/db/client';
-import { upsertFromSource, markGone, findComparables, findRecentCrossSource, setFingerprint, setStatus, attachDupe } from '../src/db/repo/listings';
+import { upsertFromSource, markGone, findComparables, findRecentCrossSource, setFingerprint, setStatus, setEligible, attachDupe } from '../src/db/repo/listings';
 import { createMonitor } from '../src/db/repo/monitors';
 import { fingerprints, listings, pricePoints } from '../src/db/schema';
 import type { ListingInput, ListingStatus } from '../src/types';
@@ -152,6 +152,19 @@ describe('markGone / findComparables', () => {
 
     const comps = findComparables(db, fpId, { windowDays: 90, variantAgnostic: false, now: agora });
     expect(comps.map((c) => c.askingCents).sort((x, y) => x - y)).toEqual([90_000, 100_000]);
+  });
+
+  it('comparáveis só usam amostra elegível (mesmo número do fixture limpo)', () => {
+    const fpId = fp(db, { key: 'k-eligible' });
+    const agora = new Date('2026-10-06T12:00:00Z');
+    const bom = upsertFromSource(db, input({ externalId: 'olx-bom', askingCents: 150_000 }), { parserVersion: 'olx-1', fingerprintId: fpId, grade: 'B', seenAt: agora });
+    const fuzzy = upsertFromSource(db, input({ externalId: 'olx-fuzzy', askingCents: 20_000 }), { parserVersion: 'olx-1', fingerprintId: fpId, grade: 'B', seenAt: agora });
+    setEligible(db, fuzzy.id, false);
+
+    expect(row(db, bom.id).eligible).toBe(true);
+    expect(row(db, fuzzy.id).eligible).toBe(false);
+    expect(findComparables(db, fpId, { windowDays: 90, variantAgnostic: false, now: agora }).map((c) => c.askingCents))
+      .toEqual([150_000]);
   });
 
   it('excludeListingId tira o item avaliado da própria amostra', () => {

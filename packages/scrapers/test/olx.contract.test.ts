@@ -61,6 +61,7 @@ describe('findAds', () => {
 describe('buildSearchUrl', () => {
   it('aplica faixa de preco em centavos convertida para reais e respeita o teto de paginas', () => {
     expect(buildSearchUrl(monitor, 1)).toContain('price_min_300_price_max_4000');
+    expect(buildSearchUrl(monitor, 1)).toContain('sf=1');
     expect(buildSearchUrl(monitor, 1)).toContain('o=1');
     expect(buildSearchUrl(monitor, 99)).toContain('o=6');
   });
@@ -125,7 +126,8 @@ describe('createOlxAdapter.search', () => {
     const ads = await adapter.search({ ...monitor, params: { ...monitor.params, pages: 2 } }, new Date());
     expect(calls).toHaveLength(2);
     expect(gaps).toHaveLength(1);
-    expect(ads).toHaveLength(6);
+    // o mesmo blob nas duas paginas nao conta duas vezes (dedupe por listId)
+    expect(ads).toHaveLength(3);
   });
 
   it('acima do teto nao varre: pages=99 faz MAX_PAGES chamadas e para', async () => {
@@ -171,7 +173,7 @@ describe('createOlxAdapter.toListingInput', () => {
     expect(li).toMatchObject({ askingCents: 98_000, city: 'Curitiba', uf: 'PR' });
     expect(isRejected(li)).toBe(false);
     expect(adapter.id).toBe('olx');
-    expect(adapter.parserVersion).toBe('olx-1');
+    expect(adapter.parserVersion).toBe('olx-rsc-2026-11');
   });
 
   it('rejeita com motivo quando o preco nao e preco', () => {

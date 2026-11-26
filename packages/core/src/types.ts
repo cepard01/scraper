@@ -45,6 +45,13 @@ export interface MonitorParams {
   minCents?: Cents;
   maxCents?: Cents;
   pages?: number;
+  pageDelayMs?: number;
+  requireWords?: string[];
+  manualCeilingCents?: Cents;
+  /** Regra de alerta do watch importado: desconto mínimo sobre a base. */
+  belowMedianPct?: number;
+  /** Amostras mínimas para confiar na mediana; abaixo dela, usa o teto manual. */
+  minSamples?: number;
   extraQuery?: string;
 }
 

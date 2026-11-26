@@ -1,3 +1,5 @@
+// Porto de entrega: o domínio monta a mensagem, o worker escolhe o transporte.
+// Hoje o único transporte real é ntfy; a implementação permanece trocável.
 export interface AlertMessage {
   title: string;
   body: string;
@@ -12,9 +14,8 @@ export interface NotifyPort {
 
 export const NULL_NOTIFY_REASON = 'alertas desligados (sem NTFY_TOPIC)';
 
-// A no-op that reports success would mark alerts as delivered when nothing left
-// the machine. The port stays callable on a clean machine, but the failure is
-// recorded honestly so the panel can show why no push arrived.
+// Um no-op que reporta sucesso faria o banco acreditar numa entrega que nunca
+// saiu da máquina. Sem tópico o porto continua chamável, mas falha honestamente.
 export function nullNotifier(): NotifyPort {
   return {
     async send() {

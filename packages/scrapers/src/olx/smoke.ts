@@ -12,6 +12,7 @@ const monitor = {
 
 const health = await adapter.health();
 console.log('health', health);
+console.log('parserVersion', adapter.parserVersion);
 const raws = await adapter.search(monitor, new Date(Date.now() - 86_400_000));
 console.log('raws', raws.length);
 const inputs = raws.map((r) => adapter.toListingInput(r));

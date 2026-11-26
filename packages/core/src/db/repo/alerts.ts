@@ -1,4 +1,4 @@
-import { and, desc, eq, ne } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import type { Db } from '../client';
 import { dealAlerts } from '../schema';
 import type { AlertChannel, AlertStatus, Cents, DealAlert } from '../../types';
@@ -37,16 +37,16 @@ export function updateDealAlert(
   }).where(eq(dealAlerts.id, id)).run();
 }
 
-// Suppressed rows are the proof that the alert was refused, not an alert the
-// operator saw. They must not set the dedupe baseline: after silent hours end,
-// the same price still deserves a push.
+// Só entregas confirmadas pelo transporte real (ntfy) formam a linha de base.
+// Suppressed/failed/pending são prova de que o operador NÃO viu o alerta: não
+// podem impedir uma nova tentativa quando o preço cai de novo.
 export function latestDealAlertCents(db: Db, listingId: number): Cents | null {
   const row = db.select({ cents: dealAlerts.alertedAtCents })
     .from(dealAlerts)
     .where(and(
       eq(dealAlerts.listingId, listingId),
-      eq(dealAlerts.channel, 'ntfy'),
-      ne(dealAlerts.status, 'suppressed'),
+      inArray(dealAlerts.channel, ['ntfy']),
+      eq(dealAlerts.status, 'sent'),
     ))
     .orderBy(desc(dealAlerts.id))
     .limit(1)

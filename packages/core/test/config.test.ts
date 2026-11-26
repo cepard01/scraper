@@ -32,6 +32,11 @@ describe('loadConfig', () => {
     expect(cfg.ntfy.baseUrl).toBe('https://ntfy.sh');
   });
 
+  it('tópico ntfy vazio é ausência de notifier, não tópico presente', () => {
+    expect(loadConfig(base).ntfy.topic).toBeNull();
+    expect(loadConfig({ ...base, NTFY_TOPIC: '' }).ntfy.topic).toBeNull();
+  });
+
   it('não vaza credencial de DATABASE_URL na mensagem de erro', () => {
     let msg = '';
     try {
