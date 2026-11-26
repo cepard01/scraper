@@ -45,6 +45,9 @@ export interface MonitorParams {
   minCents?: Cents;
   maxCents?: Cents;
   pages?: number;
+  pageDelayMs?: number;
+  requireWords?: string[];
+  manualCeilingCents?: Cents;
   extraQuery?: string;
 }
 
