@@ -133,7 +133,7 @@ export const dealAlerts = sqliteTable('deal_alert', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   opportunityId: integer('opportunity_id').notNull().references(() => opportunities.id),
   listingId: integer('listing_id').notNull(),
-  channel: text('channel').$type<'discord' | 'ntfy' | 'digest'>().notNull().default('ntfy'),
+  channel: text('channel').$type<'ntfy' | 'digest'>().notNull().default('ntfy'),
   alertedAtCents: integer('alerted_at_cents').$type<Cents>().notNull(),
   deliveredAt: ts('delivered_at'),
   status: text('status').$type<'pending' | 'sent' | 'failed' | 'suppressed'>().notNull().default('pending'),

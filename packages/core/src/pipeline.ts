@@ -143,7 +143,7 @@ export async function runMonitor(deps: PipelineDeps, monitor: SearchMonitor): Pr
             city: input.city, imageUrls: input.imageUrls,
           },
           opportunityId, signal, decision,
-          channel: deps.alertChannel ?? 'discord',
+          channel: deps.alertChannel ?? 'ntfy',
         }).then((outcome) => { if (outcome.delivered) summary.alerts++; });
       }
     }

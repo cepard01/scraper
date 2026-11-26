@@ -4,7 +4,7 @@ Caça e classificação de oportunidades de revenda em marketplace brasileiro.
 Spec: `docs/specs/2026-10-31-brique-vertical-design.md`
 Planos: `docs/plans/`
 Passagem de execução (estado atual, o que vem a seguir, decisões abertas): `docs/HANDOFF-2026-11-26.md`
-Decisões deste merge: `docs/adr/0001-merge-scrapelytics.md`
+Decisões deste merge: `docs/adr/0001-merge-scrapelytics.md` e `docs/adr/0002-ntfy-unico-transporte.md`
 
 ## Rodar
 
@@ -15,9 +15,9 @@ Decisões deste merge: `docs/adr/0001-merge-scrapelytics.md`
     pnpm seed:watches         # opcional: importa os 2 watches do ../Scrapelytics/watches.yaml
     pnpm worker               # varre os monitores e imprime a fila ranqueada
 
-`DISCORD_WEBHOOK_URL=` em `.env` liga os embeds de oferta. Sem ele, o worker usa
-`NTFY_TOPIC` se configurado; sem os dois, continua rodando e registra a entrega como falha.
-Nada de webhook/topic em log, banco de settings ou diff.
+`NTFY_TOPIC` em `.env` liga as notificações de oferta (com `NTFY_BASE_URL` opcional).
+Sem tópico o worker continua rodando e registra a entrega como falha — nunca como sucesso.
+Nada de tópico em log, banco de settings ou diff.
 `seed:watches` é idempotente (label + source + query) e o YAML não é lido em runtime.
 
 ## Comandos
@@ -45,9 +45,9 @@ O parser OLX lê o flight RSC (`self.__next_f.push`) primeiro; `__NEXT_DATA__` e
 fallbacks. `parserVersion = olx-rsc-2026-11` identifica os anúncios gravados.
 `requireWords` (em `MonitorParams`) barra resultados fuzzy antes do upsert e conta em
 `run.rejected`; `listing.eligible = false` tira comparáveis da amostra de preço.
-O alerta Discord usa a mediana elegível, ou o teto manual `manualCeilingCents` no cold start, e
+O alerta via ntfy usa a mediana elegível, ou o teto manual `manualCeilingCents` no cold start, e
 respeita `decideAlert` (gate, confiança, queda mínima de 10%). Uma entrega por cruzada; falha de
-webhook vira `deal_alert.status = failed` e a passada segue.
+transporte vira `deal_alert.status = failed` e a passada segue.
 
 ## Estrutura
 

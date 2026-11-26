@@ -57,14 +57,14 @@ export function evaluateDealSignal(opts: {
 export const DEAL_TAGS = ['moneybag'];
 export const DEAL_PRIORITY = 4;
 
+// Um AlertMessage transporte-neutro: o corpo já carrega o contexto do sinal,
+// então ntfy (ou qualquer porto futuro) não precisa conhecer mediana/cold start.
 export function formatDealMessage(opts: {
   monitor: Pick<SearchMonitor, 'label' | 'params'>;
   listing: Pick<ListingInput, 'title' | 'url' | 'city' | 'imageUrls'>;
   signal: DealSignal;
-  now?: Date;
 }): AlertMessage {
-  const { monitor, listing, signal } = opts;
-  const s = signal;
+  const { monitor, listing, signal: s } = opts;
   const basis = s.basis === 'median' ? `mediana de ${s.samples} anúncios` : 'teto manual (cold start)';
   const linhas = [
     s.belowPct !== null ? `${s.belowPct}% abaixo da base` : null,
@@ -78,16 +78,5 @@ export function formatDealMessage(opts: {
     tags: DEAL_TAGS,
     priority: DEAL_PRIORITY,
     clickUrl: listing.url,
-    discord: {
-      watchId: monitor.label,
-      priceCents: s.priceCents,
-      baselineCents: s.baselineCents,
-      belowPct: s.belowPct,
-      basis: s.basis,
-      samples: s.samples,
-      city: listing.city,
-      thumbUrl: listing.imageUrls[0] ?? null,
-      timestamp: opts.now,
-    },
   };
 }

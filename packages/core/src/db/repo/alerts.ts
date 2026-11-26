@@ -37,7 +37,7 @@ export function updateDealAlert(
   }).where(eq(dealAlerts.id, id)).run();
 }
 
-// Só entregas confirmadas (em qualquer transporte real) formam a linha de base.
+// Só entregas confirmadas pelo transporte real (ntfy) formam a linha de base.
 // Suppressed/failed/pending são prova de que o operador NÃO viu o alerta: não
 // podem impedir uma nova tentativa quando o preço cai de novo.
 export function latestDealAlertCents(db: Db, listingId: number): Cents | null {
@@ -45,7 +45,7 @@ export function latestDealAlertCents(db: Db, listingId: number): Cents | null {
     .from(dealAlerts)
     .where(and(
       eq(dealAlerts.listingId, listingId),
-      inArray(dealAlerts.channel, ['discord', 'ntfy']),
+      inArray(dealAlerts.channel, ['ntfy']),
       eq(dealAlerts.status, 'sent'),
     ))
     .orderBy(desc(dealAlerts.id))

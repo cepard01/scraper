@@ -35,7 +35,7 @@ export async function deliverDealAlert(opts: {
   // Sem cruzão de preço contra a base do watch não existe oferta para entregar.
   if (!opts.signal.deal) return { attempted: false, delivered: false };
 
-  const channel = opts.channel ?? 'discord';
+  const channel = opts.channel ?? 'ntfy';
   const at = opts.now();
   if (!opts.decision.shouldAlert) {
     const reason = opts.decision.reason ?? 'sem-decisao';
@@ -53,7 +53,7 @@ export async function deliverDealAlert(opts: {
   });
 
   try {
-    const message = formatDealMessage({ monitor: opts.monitor, listing: opts.listing, signal: opts.signal, now: at });
+    const message = formatDealMessage({ monitor: opts.monitor, listing: opts.listing, signal: opts.signal });
     const result = await opts.notify.send(message);
     if (result.ok) {
       updateDealAlert(opts.db, id, { status: 'sent', deliveredAt: opts.now() });

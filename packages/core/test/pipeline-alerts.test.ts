@@ -90,7 +90,7 @@ describe('requireWords no pipeline', () => {
 });
 
 describe('alerta de negócio no pipeline', () => {
-  it('mediana confiável gera um embed e não reenvia na passada igual', async () => {
+  it('mediana confiável entrega uma mensagem e não reenvia na passada igual', async () => {
     seedComparables(15, 400_000);
     const monitorId = createMonitor(db, { label: 'q', source: 'olx', query: 'iphone 12', category: 'celular', params: {}, intervalMinutes: 30 });
     const { port, calls } = notifier();
@@ -103,12 +103,12 @@ describe('alerta de negócio no pipeline', () => {
     expect(first.alerts).toBe(1);
     expect(second.alerts).toBe(0);
     expect(calls).toHaveLength(1);
-    expect(calls[0]!.discord).toMatchObject({ basis: 'median', priceCents: 250_000, watchId: 'iphone-12-rj' });
-    expect(calls[0]!.discord!.belowPct).toBeGreaterThan(35);
-    expect(calls[0]!.discord!.samples).toBeGreaterThanOrEqual(5);
+    expect(calls[0]!.title).toContain('iPhone 12 128GB Desbloqueado');
+    expect(calls[0]!.body).toContain('mediana de');
+    expect(calls[0]!.body).toContain('iphone-12-rj');
     const sent = db.select().from(dealAlerts).where(eq(dealAlerts.status, 'sent')).all();
     expect(sent).toHaveLength(1);
-    expect(sent[0]!.channel).toBe('discord');
+    expect(sent[0]!.channel).toBe('ntfy');
     expect(sent[0]!.alertedAtCents).toBe(250_000);
   });
 
@@ -121,7 +121,8 @@ describe('alerta de negócio no pipeline', () => {
     );
 
     expect(summary.alerts).toBe(1);
-    expect(calls[0]!.discord).toMatchObject({ basis: 'manual', baselineCents: 450_000, samples: 0 });
+    expect(calls[0]!.body).toContain('teto manual (cold start)');
+    expect(calls[0]!.body).toContain('R$ 4.500,00');
     expect(db.select().from(opportunities).all()[0]!.gateReason).toBe('amostra-insuficiente');
   });
 

@@ -58,12 +58,11 @@ describe('formatDealMessage', () => {
     priceCents: 250_000, medianCents: 400_000, samples: 15, params: params(),
   });
 
-  it('monta título, corpo e contexto do embed sem perder o sinal', () => {
+  it('monta mensagem transporte-neutra sem perder o sinal', () => {
     const msg = formatDealMessage({
       monitor: { label: 'iphone-15-rj', params: params() },
       listing: { title: 'iPhone 15', url: 'https://olx/a/1', city: 'Rio de Janeiro', imageUrls: ['https://img/1.jpg'] },
       signal,
-      now: new Date('2026-11-26T12:00:00Z'),
     });
     expect(msg.title).toContain('iPhone 15');
     expect(msg.tags).toEqual(DEAL_TAGS);
@@ -71,10 +70,8 @@ describe('formatDealMessage', () => {
     expect(msg.clickUrl).toBe('https://olx/a/1');
     expect(msg.body).toContain('37.5% abaixo da base');
     expect(msg.body).toContain('iphone-15-rj');
-    expect(msg.discord).toMatchObject({
-      watchId: 'iphone-15-rj', priceCents: 250_000, baselineCents: 400_000,
-      belowPct: 37.5, basis: 'median', samples: 15, city: 'Rio de Janeiro',
-      thumbUrl: 'https://img/1.jpg', timestamp: new Date('2026-11-26T12:00:00Z'),
-    });
+    expect(msg.body).toContain('mediana de 15 anúncios');
+    expect(msg.body).toContain('Rio de Janeiro');
+    expect(msg).not.toHaveProperty('discord');
   });
 });

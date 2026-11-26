@@ -126,7 +126,7 @@ export interface OpportunityMath {
   breakdown: ScoreBreakdown;
 }
 
-export type AlertChannel = 'discord' | 'ntfy' | 'digest';
+export type AlertChannel = 'ntfy' | 'digest';
 export type AlertStatus = 'pending' | 'sent' | 'failed' | 'suppressed';
 
 export interface DealAlert {
