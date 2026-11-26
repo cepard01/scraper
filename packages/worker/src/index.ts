@@ -5,12 +5,15 @@ import { localAskingProvider } from '@brique/core/valuation/comparables';
 import { startScheduler, type SchedulerDeps } from '@brique/core/scheduler';
 import { listDue } from '@brique/core/db/repo/monitors';
 import { listShortlistedRanked } from '@brique/core/db/repo/opportunities';
+import { nullNotifier } from '@brique/core/notify-port';
 import type { SourceAdapter } from '@brique/core/adapter-contract';
-import type { SourceId } from '@brique/core/types';
-import { createHttp } from '@brique/scrapers/http';
+import type { AlertChannel, SourceId } from '@brique/core/types';
+import { createHttp, createHttpPost } from '@brique/scrapers/http';
 import { createOlxAdapter } from '@brique/scrapers/olx/adapter';
 import { createMeliAdapter } from '@brique/scrapers/meli/adapter';
 import { printShortlist } from './cli';
+import { createDiscord } from './notify-discord';
+import { createNtfy } from './notify-ntfy';
 
 try { process.loadEnvFile(); } catch { /* em VPS o EnvironmentFile do systemd já trouxe tudo */ }
 
@@ -33,17 +36,30 @@ const meli = createMeliAdapter({ http, token: cfg.meliToken, unit: cfg.meliUnit 
 const adapters: Partial<Record<SourceId, SourceAdapter>> = { olx };
 if (meli.available) adapters.meli = meli;
 
+const post = createHttpPost({ timeoutMs: 10_000, maxAttempts: 2 });
+let transport: AlertChannel | 'off' = 'discord';
+let notify = createDiscord({ post, webhookUrl: cfg.discordWebhookUrl });
+if (!cfg.discordWebhookUrl) {
+  transport = cfg.ntfy.topic ? 'ntfy' : 'off';
+  notify = cfg.ntfy.topic
+    ? createNtfy({ post, baseUrl: cfg.ntfy.baseUrl, topic: cfg.ntfy.topic })
+    : nullNotifier();
+}
+
 const deps: SchedulerDeps = {
-  db, settings, adapters, ai: nullAiPort(), comparables: localAskingProvider, now: () => new Date(),
+  db, settings, adapters, ai: nullAiPort(), comparables: localAskingProvider,
+  notify, alertChannel: transport === 'off' ? undefined : transport, now: () => new Date(),
 };
 
-console.log(`worker ok · sqlite=${cfg.sqlitePath} · fontes=${Object.keys(adapters).join(', ')}`);
+console.log(`worker ok · sqlite=${cfg.sqlitePath} · fontes=${Object.keys(adapters).join(', ')} · notifier=${transport}`);
 console.log(`monitores due agora: ${listDue(db, new Date()).length}`);
 
 const handle = startScheduler(deps, 60_000, (summaries) => {
   const avaliados = summaries.reduce((n, s) => n + s.created + s.repriced, 0);
-  if (avaliados === 0) return;
-  console.log(printShortlist(listShortlistedRanked(db, 10)));
+  const alertas = summaries.reduce((n, s) => n + s.alerts, 0);
+  if (avaliados === 0 && alertas === 0) return;
+  console.log(`ciclo: novos/reprecificados=${avaliados} alertas=${alertas}`);
+  if (avaliados > 0) console.log(printShortlist(listShortlistedRanked(db, 10)));
 });
 
 const stop = () => { handle.stop(); console.log('parado.'); process.exit(0); };

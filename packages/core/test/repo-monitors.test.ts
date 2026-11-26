@@ -24,7 +24,7 @@ describe('scheduler repos', () => {
     const runId = startRun(db, id, new Date('2026-10-01T12:00:00Z'));
     finishRun(db, runId, new Date('2026-10-01T12:00:30Z'), {
       outcome: 'ok', fetched: 10, created: 3, repriced: 1, unchanged: 6,
-      rejected: { gratis: 1 }, unmatched: 2, aiCalls: 0,
+      rejected: { gratis: 1 }, unmatched: 2, aiCalls: 0, alerts: 0,
     });
     const row = db.select().from(runs).where(eq(runs.id, runId)).get()!;
     expect(row.rejected.gratis).toBe(1);

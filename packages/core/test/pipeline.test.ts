@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { openDb, migrateDb, seedSettings, DEFAULT_SETTINGS, type Db } from '../src/db/client-helpers';
 import { runMonitor } from '../src/pipeline';
 import { nullAiPort } from '../src/ai-port';
+import { nullNotifier } from '../src/notify-port';
 import { localAskingProvider } from '../src/valuation/comparables';
 import { createMonitor } from '../src/db/repo/monitors';
 import { upsertFromSource } from '../src/db/repo/listings';
@@ -57,7 +58,7 @@ describe('runMonitor', () => {
     const ai = nullAiPort();
 
     const summary = await runMonitor(
-      { db, settings: DEFAULT_SETTINGS, adapter: fakeAdapter([li('deal-1', 85_000)]), ai, comparables: localAskingProvider, now: () => NOW },
+      { db, settings: DEFAULT_SETTINGS, adapter: fakeAdapter([li('deal-1', 85_000)]), ai, comparables: localAskingProvider, notify: nullNotifier(), now: () => NOW },
       monitorRow(monitorId),
     );
 
@@ -78,7 +79,7 @@ describe('runMonitor', () => {
   it('segunda passada do mesmo feed nao reavalia nem regera oportunidade', async () => {
     seedComparables(10, 170_000);
     const monitorId = createMonitor(db, { label: 'iphone 12', source: 'olx', query: 'iphone 12', category: 'celular', params: {}, intervalMinutes: 30 });
-    const deps = { db, settings: DEFAULT_SETTINGS, adapter: fakeAdapter([li('deal-2', 85_000), li('watch-1', 175_000)]), ai: nullAiPort(), comparables: localAskingProvider, now: () => NOW };
+    const deps = { db, settings: DEFAULT_SETTINGS, adapter: fakeAdapter([li('deal-2', 85_000), li('watch-1', 175_000)]), ai: nullAiPort(), comparables: localAskingProvider, notify: nullNotifier(), now: () => NOW };
     const monitor = monitorRow(monitorId);
 
     const first = await runMonitor(deps, monitor);
@@ -101,7 +102,7 @@ describe('runMonitor', () => {
     const adapter = fakeAdapter([li('bad-1', 0)]);
     adapter.toListingInput = () => ({ rejected: true, reason: 'zero', rawTitle: 'iPhone 12' });
     const summary = await runMonitor(
-      { db, settings: DEFAULT_SETTINGS, adapter, ai: nullAiPort(), comparables: localAskingProvider, now: () => NOW },
+      { db, settings: DEFAULT_SETTINGS, adapter, ai: nullAiPort(), comparables: localAskingProvider, notify: nullNotifier(), now: () => NOW },
       monitorRow(monitorId, 'q'),
     );
     expect(summary.rejected.zero).toBe(1);
@@ -111,7 +112,7 @@ describe('runMonitor', () => {
   it('queda de preco realerta: repriced + nova opportunity com score', async () => {
     seedComparables(10, 170_000);
     const monitorId = createMonitor(db, { label: 'm', source: 'olx', query: 'q', category: 'celular', params: {}, intervalMinutes: 30 });
-    const base = { db, settings: DEFAULT_SETTINGS, ai: nullAiPort(), comparables: localAskingProvider, now: () => NOW };
+    const base = { db, settings: DEFAULT_SETTINGS, ai: nullAiPort(), comparables: localAskingProvider, notify: nullNotifier(), now: () => NOW };
     const monitor = monitorRow(monitorId, 'q');
 
     await runMonitor({ ...base, adapter: fakeAdapter([li('drop-1', 160_000)]) }, monitor);
@@ -143,7 +144,7 @@ describe('runMonitor: autoridade da passada', () => {
   });
 
   const depsOf = (adapter: SourceAdapter, now: () => Date = () => NOW) =>
-    ({ db, settings: DEFAULT_SETTINGS, adapter, ai: nullAiPort(), comparables: localAskingProvider, now });
+    ({ db, settings: DEFAULT_SETTINGS, adapter, ai: nullAiPort(), comparables: localAskingProvider, notify: nullNotifier(), now });
 
   it('um preço ilegível nesta passada não aposenta o anúncio visto na anterior', async () => {
     const monitorId = createMonitor(db, { label: 'q1', source: 'olx', query: 'q1', category: 'celular', params: {}, intervalMinutes: 30 });

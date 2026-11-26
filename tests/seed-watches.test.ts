@@ -53,6 +53,7 @@ describe('toMonitorSeed', () => {
       params: {
         uf: 'RJ', pages: 2, pageDelayMs: 1500, extraQuery: 'sf=1',
         requireWords: ['iphone 15'], minCents: 80_000, maxCents: 450_000, manualCeilingCents: 450_000,
+        belowMedianPct: 35, minSamples: 15,
       },
       // a política de 15 min do Brique prevalece sobre os 3 min do YAML
       intervalMinutes: 15,
@@ -64,6 +65,7 @@ describe('toMonitorSeed', () => {
     const cfg = parseWatchesYaml(minimal);
     expect(toMonitorSeed(cfg.watches[0]!, cfg.settings).params).toEqual({
       uf: 'RJ', pages: 2, pageDelayMs: 1500, extraQuery: 'sf=1', requireWords: [],
+      belowMedianPct: 35, minSamples: 15,
     });
   });
 });

@@ -11,9 +11,15 @@ import { gate } from './score/gate';
 import { findDupe } from './dedupe';
 import type { ComparablesProvider } from './valuation/comparables';
 import type { AiTriagePort } from './ai-port';
+import type { NotifyPort } from './notify-port';
 import type { Db } from './db/client';
-import type { SearchMonitor, Settings } from './types';
+import type { AlertChannel, SearchMonitor, Settings } from './types';
 import { isRejected, type SourceAdapter } from './adapter-contract';
+import { requireWordsVerdict } from './filters';
+import { decideAlert, type AlertDecision } from './alerts';
+import { evaluateDealSignal } from './deal-signal';
+import { deliverDealAlert } from './alert-delivery';
+import { latestDealAlertCents } from './db/repo/alerts';
 
 export interface PipelineDeps {
   db: Db;
@@ -21,6 +27,9 @@ export interface PipelineDeps {
   adapter: SourceAdapter;
   ai: AiTriagePort;
   comparables: ComparablesProvider;
+  /** Transporte obrigatório: na máquina sem webhook, quem compõe deps passa nullNotifier(). */
+  notify: NotifyPort;
+  alertChannel?: AlertChannel;
   now: () => Date;
   deadlineMs?: number;
   outPlatform?: string;
@@ -32,7 +41,7 @@ export async function runMonitor(deps: PipelineDeps, monitor: SearchMonitor): Pr
   const runId = startRun(db, monitor.id, startedAt);
   const deadline = deps.deadlineMs ?? 600_000;
 
-  const summary: RunSummary = { outcome: 'ok', fetched: 0, created: 0, repriced: 0, unchanged: 0, rejected: {}, unmatched: 0, aiCalls: 0 };
+  const summary: RunSummary = { outcome: 'ok', fetched: 0, created: 0, repriced: 0, unchanged: 0, rejected: {}, unmatched: 0, aiCalls: 0, alerts: 0 };
   let timedOut = false;
 
   try {
@@ -50,6 +59,14 @@ export async function runMonitor(deps: PipelineDeps, monitor: SearchMonitor): Pr
         continue;
       }
       const input = parsed;
+
+      // Filtro fuzzy antes de qualquer escrita: item fora do watch não entra na
+      // amostra de preço, não vira oportunidade e nunca gera alerta.
+      const words = requireWordsVerdict(input.title, monitor.params.requireWords);
+      if (!words.ok) {
+        summary.rejected[words.reason] = (summary.rejected[words.reason] ?? 0) + 1;
+        continue;
+      }
 
       const product = extractProduct(input.title, input.description);
       if (!product.matched) summary.unmatched++;
@@ -89,13 +106,46 @@ export async function runMonitor(deps: PipelineDeps, monitor: SearchMonitor): Pr
       });
 
       const g = gate({ math, sampleGate: value.sampleGate, hasFingerprint: true, settings, confidence: value.valuation.confidence });
-      if (!g.passed) {
-        insertOpportunity(db, upsert.id, math, { valuationId, gatePassed: false, gateReason: g.reason, createdAt: deps.now() });
-        continue;
-      }
+      const opportunityId = insertOpportunity(db, upsert.id, math, { valuationId, gatePassed: g.passed, gateReason: g.reason, createdAt: deps.now() });
+      // Alerta depende da decisão de alerta (gate + confiança + cruzada), não
+      // apenas do preço baixo. O sinal abaixo dá a base exibida no embed.
+      await maybeAlert();
+      if (!g.passed) continue;
 
-      insertOpportunity(db, upsert.id, math, { valuationId, gatePassed: true, gateReason: 'ok', createdAt: deps.now() });
       setStatus(db, upsert.id, 'shortlisted');
+
+      function maybeAlert(): Promise<void> {
+        const signal = evaluateDealSignal({
+          priceCents: input.askingCents,
+          medianCents: value.valuation.medianCents,
+          samples: value.valuation.sampleSize,
+          params: monitor.params,
+        });
+        if (!signal.deal) return Promise.resolve();
+
+        const lastCents = latestDealAlertCents(db, upsert.id);
+        // Exceção explícita portada do Scrapelytics: no cold start não existe
+        // margem para passar no gate, mas o teto manual do watch autoriza o push.
+        const coldStart = !g.passed && g.reason === 'amostra-insuficiente' && signal.basis === 'manual';
+        const decision: AlertDecision = coldStart
+          ? { shouldAlert: true, kind: 'novo', dropPct: null, reason: null }
+          : decideAlert({
+            listingId: upsert.id, askingCents: input.askingCents,
+            gatePassed: g.passed, gateReason: g.reason,
+            confidence: value.valuation.confidence, marginPct: math.marginPct,
+            floorMarginPct: settings.floorMarginPct, lastAlertCents: lastCents,
+          });
+
+        return deliverDealAlert({
+          db, notify: deps.notify, now: deps.now, monitor,
+          listing: {
+            id: upsert.id, title: input.title, url: input.url,
+            city: input.city, imageUrls: input.imageUrls,
+          },
+          opportunityId, signal, decision,
+          channel: deps.alertChannel ?? 'discord',
+        }).then((outcome) => { if (outcome.delivered) summary.alerts++; });
+      }
     }
 
     if (raws.length > 0 && !timedOut) markGone(db, deps.adapter.id, seenIds, deps.now(), monitor.id);

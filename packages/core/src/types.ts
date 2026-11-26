@@ -48,6 +48,10 @@ export interface MonitorParams {
   pageDelayMs?: number;
   requireWords?: string[];
   manualCeilingCents?: Cents;
+  /** Regra de alerta do watch importado: desconto mínimo sobre a base. */
+  belowMedianPct?: number;
+  /** Amostras mínimas para confiar na mediana; abaixo dela, usa o teto manual. */
+  minSamples?: number;
   extraQuery?: string;
 }
 
@@ -122,7 +126,7 @@ export interface OpportunityMath {
   breakdown: ScoreBreakdown;
 }
 
-export type AlertChannel = 'ntfy' | 'digest';
+export type AlertChannel = 'discord' | 'ntfy' | 'digest';
 export type AlertStatus = 'pending' | 'sent' | 'failed' | 'suppressed';
 
 export interface DealAlert {

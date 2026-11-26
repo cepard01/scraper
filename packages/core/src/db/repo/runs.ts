@@ -11,6 +11,8 @@ export interface RunSummary {
   rejected: Record<string, number>;
   unmatched: number;
   aiCalls: number;
+  /** Entregas efetivas nesta passada; a tabela run não guarda esta coluna (fase atual). */
+  alerts: number;
   error?: string;
 }
 

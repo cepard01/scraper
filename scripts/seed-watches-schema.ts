@@ -74,6 +74,8 @@ export function toMonitorSeed(watch: WatchYaml, settings: WatchesYaml['settings'
     pageDelayMs: settings.pageDelayMs,
     extraQuery: 'sf=1',
     requireWords: watch.filters.requireWords,
+    belowMedianPct: watch.deal.belowMedianPct,
+    minSamples: watch.deal.minSamples,
   };
   if (watch.filters.minPrice > 0) params.minCents = watch.filters.minPrice * 100;
   if (watch.filters.maxPrice != null) {
