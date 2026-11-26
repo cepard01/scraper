@@ -65,13 +65,20 @@ export function createMeliAdapter(deps: MeliAdapterDeps): SourceAdapter & { read
       const pages = Math.min(monitor.params.pages ?? 2, MAX_PAGES);
       const out: RawListing[] = [];
       for (let page = 0; page < pages; page++) {
+        const uf = monitor.params.uf?.trim().toUpperCase();
         const res = await deps.http(
-          searchUrl(deps.unit, monitor.query, LIMIT, page * LIMIT),
+          searchUrl(deps.unit, monitor.query, LIMIT, page * LIMIT, uf),
           { headers: meliHeaders(token) },
         );
         if (res.status !== 200) break; // 401 de token ruim e 429 de cota caem aqui; quem distingue 'fonte bloqueada' de 'dia sem anuncio' e o run do Task 16, nao o search
         const body = safeJson<{ results?: MeliItem[] }>(res);
-        const items = (body?.results ?? []).filter(isMeliItem);
+        const items = (body?.results ?? []).filter(isMeliItem).filter((it) => {
+          if (!uf) return true;
+          const state = it.address?.state?.id;
+          // Sem estado no payload confiamos no filtro BR-<UF> enviado à API;
+          // com estado divergente o item não pode entrar no watch.
+          return !state || state === `BR-${uf}`;
+        });
         if (items.length === 0) break;
         for (const it of items) {
           out.push({ source: 'meli', externalId: it.id, url: it.permalink ?? '', fetchedAt: new Date(), payload: it });

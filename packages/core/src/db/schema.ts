@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { integer, text, real, sqliteTable, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
-import type { Category, Confidence, Cents, GateReason, Grade, ListingStatus, MonitorParams, PurchaseStatus, SourceId, Valuation } from '../types';
+import type { AlertAction, Category, Confidence, Cents, GateReason, Grade, ListingStatus, MonitorParams, PurchaseStatus, SourceId, Valuation } from '../types';
 
 const ts = (name: string) => integer(name, { mode: 'timestamp_ms' });
 
@@ -126,6 +126,7 @@ export const runs = sqliteTable('run', {
   rejected: text('rejected', { mode: 'json' }).$type<Record<string, number>>().notNull().default(sql`'{}'`),
   unmatched: integer('unmatched').notNull().default(0),
   aiCalls: integer('ai_calls').notNull().default(0),
+  alerts: integer('alerts').notNull().default(0),
   error: text('error'),
 });
 
@@ -138,8 +139,14 @@ export const dealAlerts = sqliteTable('deal_alert', {
   deliveredAt: ts('delivered_at'),
   status: text('status').$type<'pending' | 'sent' | 'failed' | 'suppressed'>().notNull().default('pending'),
   reason: text('reason'),
+  ackAt: ts('ack_at'),
+  action: text('action').$type<AlertAction>(),
+  snoozeUntil: ts('snooze_until'),
   createdAt: ts('created_at').notNull(),
-}, (t) => [index('i_alert_listing').on(t.listingId, t.createdAt)]);
+}, (t) => [
+  index('i_alert_listing').on(t.listingId, t.createdAt),
+  index('i_alert_action').on(t.action, t.snoozeUntil),
+]);
 
 export const settings = sqliteTable('setting', {
   key: text('key').primaryKey(),

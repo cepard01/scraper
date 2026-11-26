@@ -11,7 +11,13 @@ export function listDue(db: Db, now: Date): SearchMonitor[] {
       params: r.params, intervalMinutes: r.intervalMinutes, active: r.active,
       lastRunAt: r.lastRunAt, lastYield: r.lastYield, mutedUntil: r.mutedUntil,
     }))
+    .filter((m) => !m.mutedUntil || m.mutedUntil.getTime() <= now.getTime())
     .filter((m) => !m.lastRunAt || now.getTime() - m.lastRunAt.getTime() >= m.intervalMinutes * 60_000);
+}
+
+export function setMonitorMute(db: Db, monitorId: number, mutedUntil: Date | null, at: Date): void {
+  db.update(searchMonitors).set({ mutedUntil, updatedAt: at })
+    .where(eq(searchMonitors.id, monitorId)).run();
 }
 
 export function touchRun(db: Db, monitorId: number, at: Date, yieldCount: number): void {

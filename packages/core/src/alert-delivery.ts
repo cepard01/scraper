@@ -1,7 +1,8 @@
 import type { AlertDecision } from './alerts';
 import { formatDealMessage, type DealSignal } from './deal-signal';
 import type { Db } from './db/client';
-import { insertDealAlert, updateDealAlert } from './db/repo/alerts';
+import { activeAlertAction, insertDealAlert, updateDealAlert } from './db/repo/alerts';
+import { isSilentHours } from './alerts';
 import type { NotifyPort } from './notify-port';
 import type { AlertChannel, SearchMonitor } from './types';
 
@@ -31,21 +32,32 @@ export async function deliverDealAlert(opts: {
   signal: DealSignal;
   decision: AlertDecision;
   channel?: AlertChannel;
+  tz?: string;
 }): Promise<DeliveryOutcome> {
   // Sem cruzão de preço contra a base do watch não existe oferta para entregar.
   if (!opts.signal.deal) return { attempted: false, delivered: false };
 
   const channel = opts.channel ?? 'ntfy';
   const at = opts.now();
-  if (!opts.decision.shouldAlert) {
-    const reason = opts.decision.reason ?? 'sem-decisao';
+  const suppress = (reason: string): DeliveryOutcome => {
     insertDealAlert(opts.db, {
       opportunityId: opts.opportunityId, listingId: opts.listing.id, channel,
       alertedAtCents: opts.signal.priceCents, status: 'suppressed',
       reason, createdAt: at,
     });
     return { attempted: false, delivered: false, reason };
+  };
+
+  if (!opts.decision.shouldAlert) return suppress(opts.decision.reason ?? 'sem-decisao');
+
+  // Silêncio, mute e ações do painel são supressões com registro: um push
+  // engolido sem linha é indistinguível de notificação quebrada.
+  const action = activeAlertAction(opts.db, opts.listing.id, at);
+  if (action) return suppress(action.reason);
+  if (opts.monitor.mutedUntil && opts.monitor.mutedUntil.getTime() > at.getTime()) {
+    return suppress('monitor-mute');
   }
+  if (isSilentHours(at, opts.tz ?? 'America/Sao_Paulo')) return suppress('silent-hours');
 
   const id = insertDealAlert(opts.db, {
     opportunityId: opts.opportunityId, listingId: opts.listing.id, channel,

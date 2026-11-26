@@ -244,6 +244,67 @@ export function parseOlxPage(html: string): { ads: OlxAd[]; strategy: OlxParserS
   return { ads: parseCardHtml(html), strategy: 'html' };
 }
 
+interface JsonLdProduct {
+  '@type'?: string;
+  identifier?: string | number;
+  name?: string;
+  description?: string;
+  url?: string;
+  image?: Array<string | { contentUrl?: string; url?: string }>;
+  offers?: { price?: string | number; priceCurrency?: string };
+}
+
+const metaContent = (html: string, property: string): string | null => {
+  const re = new RegExp(`<meta[^>]+(?:property|name)=["']${property}["'][^>]+content=["']([^"']+)["']`, 'i');
+  return html.match(re)?.[1] ?? null;
+};
+
+// A página de anúncio não traz os chunks RSC da busca; o Product JSON-LD é a
+// fonte estável. UF/cidade vêm do blob embutido, cujas aspas aparecem escapadas.
+export function parseOlxDetailPage(html: string, expectedId?: string): OlxAd | null {
+  const products: JsonLdProduct[] = [];
+  for (const m of html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+    try {
+      const parsed = JSON.parse(m[1]!) as JsonLdProduct | JsonLdProduct[];
+      for (const p of Array.isArray(parsed) ? parsed : [parsed]) {
+        if (p?.['@type'] === 'Product') products.push(p);
+      }
+    } catch { /* outro bloco JSON-LD qualquer */ }
+  }
+  const product = products.find((p) => expectedId === undefined || String(p.identifier) === expectedId) ?? null;
+  if (!product || product.identifier == null) return null;
+
+  const flat = html.replace(/\\"/g, '"');
+  const uf = flat.match(/"state"\s*:\s*"([A-Z]{2})"/)?.[1] ?? null;
+  const city = flat.match(/"municipality"\s*:\s*"([^"\\]+)"/)?.[1] ?? null;
+  const subject = flat.match(/"subject"\s*:\s*"([^"\\]+)"/)?.[1] ?? null;
+  const priceValue = flat.match(/"priceValue"\s*:\s*"([^"\\]+)"/)?.[1] ?? null;
+  const imageUrls = (product.image ?? [])
+    .map((i) => (typeof i === 'string' ? i : (i.contentUrl ?? i.url ?? '')))
+    .filter((u) => /^https?:\/\//.test(u))
+    .slice(0, 12);
+  const cover = metaContent(html, 'og:image');
+  if (cover && !imageUrls.includes(cover)) imageUrls.unshift(cover);
+
+  const numericPrice = typeof product.offers?.price === 'string'
+    ? Number(product.offers.price.replace(',', '.'))
+    : product.offers?.price;
+  const priceRaw = priceValue ?? (numericPrice !== undefined ? `R$ ${numericPrice}` : '');
+  const url = product.url ?? metaContent(html, 'og:url') ?? '';
+  const title = (subject ?? product.name ?? metaContent(html, 'og:title') ?? '').trim();
+  if (!title || !url) return null;
+
+  return {
+    externalId: String(product.identifier), title, priceRaw,
+    priceCents: typeof numericPrice === 'number' && Number.isFinite(numericPrice) && numericPrice > 0
+      ? Math.round(numericPrice * 100)
+      : undefined,
+    url, city, uf,
+    description: (product.description ?? '').replace(/<br\s*\/?>/gi, '\n'),
+    imageUrls: imageUrls.slice(0, 12), sellerRef: null, publishedAt: null,
+  };
+}
+
 const CARD_RE = /<a[^>]+href="(\/anuncio\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
 const PRICE_IN_CARD_RE = /R\$\s*[\d.,]+/;
 
