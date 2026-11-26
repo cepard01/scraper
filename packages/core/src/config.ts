@@ -10,6 +10,7 @@ const EnvSchema = z.object({
   OMNIROUTE_API_KEY: z.string().optional(),
   MELI_ACCESS_TOKEN: z.string().optional(),
   MELI_UNIT: z.string().default('MLB'),
+  DISCORD_WEBHOOK_URL: z.string().optional(),
   NTFY_BASE_URL: z.string().default('https://ntfy.sh'),
   NTFY_TOPIC: z.string().optional(),
   WEB_PORT: z.coerce.number().int().min(1).max(65535).default(3000),
@@ -22,6 +23,7 @@ export interface Config {
   meliToken: string | null;
   meliUnit: string;
   omniRoute: { baseUrl: string; apiKey: string | null };
+  discordWebhookUrl: string | null;
   ntfy: { baseUrl: string; topic: string | null };
   webPort: number;
   tz: string;
@@ -61,6 +63,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     meliToken: emptyToNull(e.MELI_ACCESS_TOKEN),
     meliUnit: e.MELI_UNIT,
     omniRoute: { baseUrl: e.OMNIROUTE_BASE_URL, apiKey: emptyToNull(e.OMNIROUTE_API_KEY) },
+    discordWebhookUrl: emptyToNull(e.DISCORD_WEBHOOK_URL),
     ntfy: { baseUrl: e.NTFY_BASE_URL, topic: emptyToNull(e.NTFY_TOPIC) },
     webPort: e.WEB_PORT,
     tz: e.TZ_DISPLAY,

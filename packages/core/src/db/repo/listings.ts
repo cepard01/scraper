@@ -8,6 +8,7 @@ export interface UpsertOpts {
   monitorId?: number | null;
   fingerprintId?: number | null;
   grade?: Grade | null;
+  eligible?: boolean;
   seenAt: Date;
 }
 
@@ -43,6 +44,7 @@ export function upsertFromSource(db: Db, input: ListingInput, opts: UpsertOpts):
       lastSeenAt: opts.seenAt,
       rawPayload: input as unknown,
       parserVersion: opts.parserVersion,
+      eligible: opts.eligible ?? true,
     }).returning({ id: listings.id }).get();
     const id = inserted.id;
     db.insert(pricePoints).values({ listingId: id, askingCents: input.askingCents, observedAt: opts.seenAt }).run();
@@ -78,6 +80,7 @@ export function upsertFromSource(db: Db, input: ListingInput, opts: UpsertOpts):
     fingerprintId: opts.fingerprintId ?? existing.fingerprintId,
     grade: opts.grade ?? existing.grade,
     parserVersion: opts.parserVersion,
+    eligible: opts.eligible ?? existing.eligible,
     rawPayload: input as unknown,
   }).where(eq(listings.id, existing.id)).run();
 
@@ -97,6 +100,10 @@ export function setStatus(db: Db, listingId: number, status: ListingStatus): voi
 
 export function setFingerprint(db: Db, listingId: number, fingerprintId: number | null, grade: Grade | null): void {
   db.update(listings).set({ fingerprintId, grade }).where(eq(listings.id, listingId)).run();
+}
+
+export function setEligible(db: Db, listingId: number, eligible: boolean): void {
+  db.update(listings).set({ eligible }).where(eq(listings.id, listingId)).run();
 }
 
 export function markGone(db: Db, source: SourceId, seenExternalIds: string[], now: Date, monitorId?: number): number {
@@ -141,7 +148,7 @@ export function findComparables(
     fpIds.push(...siblings.map((s) => s.id));
   }
 
-  const rows = db.select({ id: listings.id, askingCents: listings.askingCents, status: listings.status })
+  const rows = db.select({ id: listings.id, askingCents: listings.askingCents, status: listings.status, eligible: listings.eligible })
     .from(listings)
     .where(and(
       inArray(listings.fingerprintId, fpIds),
@@ -152,6 +159,7 @@ export function findComparables(
 
   return rows
     .filter((r) => r.status !== 'bought')
+    .filter((r) => r.eligible)
     .filter((r) => r.id !== opts.excludeListingId)
     .map((r) => ({ listingId: r.id, askingCents: r.askingCents }));
 }

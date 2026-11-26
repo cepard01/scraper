@@ -1,0 +1,1 @@
+ALTER TABLE `listing` ADD `eligible` integer DEFAULT true NOT NULL;

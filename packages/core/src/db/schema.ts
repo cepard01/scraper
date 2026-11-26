@@ -54,6 +54,7 @@ export const listings = sqliteTable('listing', {
   dupeOf: integer('dupe_of'),
   rawPayload: text('raw_payload', { mode: 'json' }),
   parserVersion: text('parser_version').notNull(),
+  eligible: integer('eligible', { mode: 'boolean' }).notNull().default(true),
 }, (t) => [
   uniqueIndex('u_listing_source_ext').on(t.source, t.externalId),
   index('i_listing_fingerprint').on(t.fingerprintId),

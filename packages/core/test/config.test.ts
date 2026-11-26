@@ -32,6 +32,11 @@ describe('loadConfig', () => {
     expect(cfg.ntfy.baseUrl).toBe('https://ntfy.sh');
   });
 
+  it('webhook Discord vazio é ausência de notifier, não segredo presente', () => {
+    expect(loadConfig(base).discordWebhookUrl).toBeNull();
+    expect(loadConfig({ ...base, DISCORD_WEBHOOK_URL: '' }).discordWebhookUrl).toBeNull();
+  });
+
   it('não vaza credencial de DATABASE_URL na mensagem de erro', () => {
     let msg = '';
     try {
