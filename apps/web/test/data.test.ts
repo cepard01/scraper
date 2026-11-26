@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { openDb, migrateDb, type Db } from '@brique/core/db/client';
-import { DEFAULT_SETTINGS, seedSettings } from '@brique/core/db/client-helpers';
+import { DEFAULT_SETTINGS, seedSettings, setAiPaused } from '@brique/core/db/client-helpers';
 import { getOrCreateFingerprint } from '@brique/core/db/repo/fingerprints';
 import { upsertFromSource } from '@brique/core/db/repo/listings';
 import { insertOpportunity } from '@brique/core/db/repo/opportunities';
@@ -9,7 +9,7 @@ import { insertDealAlert } from '@brique/core/db/repo/alerts';
 import { createMonitor } from '@brique/core/db/repo/monitors';
 import { insertPurchase, recordSale } from '@brique/core/db/repo/giro';
 import {
-  comparableRefs, opportunities, pricePoints, runs, valuations,
+  aiCallLog, comparableRefs, opportunities, pricePoints, runs, valuations,
 } from '@brique/core/db/schema';
 import type { ListingInput } from '@brique/core/types';
 import { getDeals, getHome, getInventory, getListingDetail, getPnl } from '../src/data';
@@ -114,6 +114,24 @@ describe('queries das rotas', () => {
     expect(home.summary.inventoryValueCents).toBe(50_000);
     expect(home.health).toMatchObject([{ source: 'olx', degraded: false }]);
     expect(home.top).toHaveLength(1);
+  });
+
+  it('/ mostra KPI de IA honesto até o gateway registrar chamadas', () => {
+    seed();
+    const off = getHome(db, 'America/Sao_Paulo');
+    expect(off.ai).toMatchObject({ configured: false, cacheHitPct: null, calls: 0, paused: false });
+
+    const now = new Date();
+    db.insert(aiCallLog).values([
+      { task: 'triage.batch', status: 'ok', attempts: 1, batchSize: 12, createdAt: now },
+      { task: 'triage.batch', status: 'cache-hit', attempts: 0, batchSize: 1, createdAt: now },
+    ]).run();
+    setAiPaused(db, true);
+
+    const on = getHome(db, 'America/Sao_Paulo', 10, {
+      ntfyConfigured: true, meliConfigured: false, omnirouteConfigured: true,
+    });
+    expect(on.ai).toMatchObject({ configured: true, cacheHitPct: 0.5, calls: 1, paused: true });
   });
 
   it('/inventory e /pnl herdam stale e itens realizados do core', () => {

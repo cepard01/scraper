@@ -46,7 +46,18 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <tbody>
           <tr><th>ntfy</th><td>{config.ntfyConfigured ? 'configurado' : 'não configurado'}</td></tr>
           <tr><th>Mercado Livre</th><td>{config.meliConfigured ? 'token presente' : 'sem token'}</td></tr>
-          <tr><th>OmniRoute</th><td>{config.omnirouteConfigured ? 'chave presente' : 'sem chave (Fase D)'}</td></tr>
+          <tr><th>OmniRoute</th><td>{config.omnirouteConfigured ? 'chave presente' : 'sem chave'}</td></tr>
+        </tbody>
+      </table>
+
+      <h2>IA / OmniRoute</h2>
+      <p className="muted">Limites e pausa são espelhados pelo worker. Nenhuma chave ou URL é exibida.</p>
+      <table>
+        <tbody>
+          <tr><th>Estado</th><td>{!config.omnirouteConfigured ? 'desligada (sem chave)' : s.aiPaused ? 'pausada por orçamento/circuito' : 'ativa'}</td></tr>
+          {Object.entries(s.aiDailyLimits).map(([task, limit]) => (
+            <tr key={task}><th>{task}</th><td>{limit} requisição(ões)/dia</td></tr>
+          ))}
         </tbody>
       </table>
     </>

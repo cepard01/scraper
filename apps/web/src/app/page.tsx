@@ -1,8 +1,8 @@
 import { loadConfig } from '@brique/core/config';
 import Link from 'next/link';
-import { getHome } from '../data';
+import { getConfigStatus, getHome } from '../data';
 import { webDb } from '../db';
-import { healthText, money, notice, pct, verdictText } from '../view';
+import { aiKpiText, healthText, money, notice, pct, verdictText } from '../view';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,7 +10,7 @@ type Search = { error?: string | string[]; ok?: string | string[] };
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<Search> }) {
   const cfg = loadConfig();
-  const data = getHome(webDb(), cfg.tz);
+  const data = getHome(webDb(), cfg.tz, 10, getConfigStatus());
   const msg = notice(await searchParams);
   const degraded = data.health.filter((h) => h.degraded).length;
 
@@ -23,7 +23,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         <div className="card"><span>Capital em estoque</span>{money(data.summary.inventoryValueCents)}</div>
         <div className="card"><span>ROI médio</span>{pct(data.summary.roiPct)}</div>
         <div className="card"><span>Dias médios de giro</span>{data.summary.avgDaysInStock?.toFixed(1) ?? 'n/d'}</div>
-        <div className="card"><span>Cache de IA</span>n/d <small>(Fase D)</small></div>
+        <div className="card"><span>Cache de IA</span>{aiKpiText(data.ai)} <small>{data.ai.configured ? `${data.ai.calls} chamada(s) em 24h` : 'sem chave'}</small></div>
         <div className="card"><span>Fontes</span>{degraded > 0 ? `${degraded} degradada(s)` : 'ok'}</div>
       </div>
 

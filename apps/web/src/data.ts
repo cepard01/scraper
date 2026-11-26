@@ -6,6 +6,7 @@ import {
   comparableRefs, fingerprints, listings, opportunities,
   pricePoints, purchases, valuations,
 } from '@brique/core/db/schema';
+import { aiStatsSince } from '@brique/core/db/repo/ai';
 import { listDealAlertsForListing } from '@brique/core/db/repo/alerts';
 import { getListing } from '@brique/core/db/repo/listings';
 import { listMonitors } from '@brique/core/db/repo/monitors';
@@ -71,18 +72,41 @@ export interface SourceHealthRow extends SourceHealth {
   source: string;
 }
 
+export interface HomeAiData {
+  configured: boolean;
+  /** Taxa de cache nas últimas 24h; null é n/d — nunca transformado em 0%. */
+  cacheHitPct: number | null;
+  calls: number;
+  paused: boolean;
+}
+
 export interface HomeData {
   summary: ReturnType<typeof pnlSummary>;
   health: SourceHealthRow[];
   top: DealCard[];
+  ai: HomeAiData;
 }
 
-export function getHome(db: Db, tz: string, limit = 10): HomeData {
+const NO_CONFIG: ConfigStatus = { ntfyConfigured: false, meliConfigured: false, omnirouteConfigured: false };
+
+export function getHome(db: Db, tz: string, limit = 10, config: ConfigStatus = NO_CONFIG): HomeData {
   const sources = Array.from(new Set(listMonitors(db).map((m) => m.source)));
+  const stats = aiStatsSince(db, new Date(Date.now() - 86_400_000));
+  const sum = (status: 'ok' | 'cache-hit') =>
+    stats.filter((s) => s.status === status).reduce((n, s) => n + s.total, 0);
+  const calls = sum('ok');
+  const hits = sum('cache-hit');
+
   return {
     summary: pnlSummary(db, { tz }),
     health: sources.map((source) => ({ source, ...checkSourceHealth(db, source) })),
     top: getDeals(db, limit),
+    ai: {
+      configured: config.omnirouteConfigured,
+      calls,
+      cacheHitPct: calls + hits > 0 ? hits / (calls + hits) : null,
+      paused: loadSettings(db).aiPaused,
+    },
   };
 }
 

@@ -17,13 +17,16 @@
     "db:migrate": "tsx packages/core/src/db/migrate.ts",
     "seed:demo": "tsx scripts/seed-demo.ts",
     "seed:watches": "tsx scripts/seed-watches.ts",
+    "omniroute:setup": "tsx scripts/omniroute-setup.ts",
     "fixtures:record": "tsx scripts/record-fixtures.ts",
     "smoke:olx": "tsx packages/scrapers/src/olx/smoke.ts",
-    "smoke:meli": "tsx packages/scrapers/src/meli/smoke.ts"
+    "smoke:meli": "tsx packages/scrapers/src/meli/smoke.ts",
+    "smoke:ai": "tsx scripts/smoke-ai.ts"
   },
   "devDependencies": {
     "@brique/ai": "workspace:*",
     "@brique/core": "workspace:*",
+    "@brique/scrapers": "workspace:*",
     "@types/node": "^24.10.1",
     "drizzle-kit": "^0.31.11",
     "drizzle-orm": "^0.45.4",
