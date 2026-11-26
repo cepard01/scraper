@@ -33,6 +33,8 @@ export async function deliverDealAlert(opts: {
   decision: AlertDecision;
   channel?: AlertChannel;
   tz?: string;
+  /** Marcadores honestos do painel, ex.: sem-auditoria-ia. Não mudam o texto do push. */
+  flags?: string[];
 }): Promise<DeliveryOutcome> {
   // Sem cruzão de preço contra a base do watch não existe oferta para entregar.
   if (!opts.signal.deal) return { attempted: false, delivered: false };
@@ -43,7 +45,7 @@ export async function deliverDealAlert(opts: {
     insertDealAlert(opts.db, {
       opportunityId: opts.opportunityId, listingId: opts.listing.id, channel,
       alertedAtCents: opts.signal.priceCents, status: 'suppressed',
-      reason, createdAt: at,
+      reason, flags: opts.flags ?? [], createdAt: at,
     });
     return { attempted: false, delivered: false, reason };
   };
@@ -61,7 +63,7 @@ export async function deliverDealAlert(opts: {
 
   const id = insertDealAlert(opts.db, {
     opportunityId: opts.opportunityId, listingId: opts.listing.id, channel,
-    alertedAtCents: opts.signal.priceCents, status: 'pending', createdAt: at,
+    alertedAtCents: opts.signal.priceCents, status: 'pending', flags: opts.flags ?? [], createdAt: at,
   });
 
   try {

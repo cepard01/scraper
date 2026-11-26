@@ -2,6 +2,7 @@ import { and, asc, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import type { Db } from '../client';
 import { listings, opportunities, valuations } from '../schema';
 import type { Confidence, GateReason, OpportunityMath } from '../../types';
+import type { TriageVerdict } from '../../ai-port';
 
 export function insertOpportunity(
   db: Db,
@@ -19,12 +20,24 @@ export function insertOpportunity(
   }).returning({ id: opportunities.id }).get().id;
 }
 
+/** Veredito da IA fica na oportunidade que o painel exibe, sem criar alerta. */
+export function updateOpportunityAi(
+  db: Db,
+  id: number,
+  verdict: TriageVerdict['verdict'],
+  reasons: string[],
+): void {
+  db.update(opportunities).set({ aiVerdict: verdict, aiReasons: reasons })
+    .where(eq(opportunities.id, id)).run();
+}
+
 export interface RankedRow {
   opportunityId: number; listingId: number; externalId: string; source: string; title: string; url: string;
   city: string | null; askingCents: number; fairGrossCents: number | null;
   marginCents: number | null; marginPct: number | null; expectedPerDayCents: number | null;
   liquidityDays: number; score: number; breakdown: Record<string, number>;
   sampleSize: number; confidence: Confidence | 'none';
+  aiVerdict?: TriageVerdict['verdict'] | null; aiReasons?: string[] | null;
 }
 
 export function listShortlistedRanked(db: Db, limit: number): RankedRow[] {
@@ -51,6 +64,8 @@ export function listShortlistedRanked(db: Db, limit: number): RankedRow[] {
       breakdown: opportunities.breakdown,
       sampleSize: sql<number>`coalesce(${valuations.sampleSize}, 0)`.as('sampleSize'),
       confidence: sql<Confidence | 'none'>`coalesce(${valuations.confidence}, 'none')`.as('confidence'),
+      aiVerdict: opportunities.aiVerdict,
+      aiReasons: opportunities.aiReasons,
     })
     .from(opportunities)
     .innerJoin(listings, eq(listings.id, opportunities.listingId))

@@ -4,13 +4,13 @@ import { upsertFromSource, setStatus, markGone, attachDupe, findRecentCrossSourc
 import { startRun, finishRun, type RunSummary } from './db/repo/runs';
 import { touchRun } from './db/repo/monitors';
 import { insertValuation } from './db/repo/valuations';
-import { insertOpportunity } from './db/repo/opportunities';
+import { insertOpportunity, updateOpportunityAi } from './db/repo/opportunities';
 import { valueFingerprint } from './valuation/valuation';
 import { scoreOpportunity } from './score/score';
 import { gate } from './score/gate';
 import { findDupe } from './dedupe';
 import type { ComparablesProvider } from './valuation/comparables';
-import type { AiTriagePort } from './ai-port';
+import type { AiTriagePort, TriageInput, TriageVerdict } from './ai-port';
 import type { NotifyPort } from './notify-port';
 import type { Db } from './db/client';
 import type { AlertChannel, SearchMonitor, Settings } from './types';
@@ -36,19 +36,30 @@ export interface PipelineDeps {
   outPlatform?: string;
 }
 
+/** Item que cruzou o floor: passa pelo cache/IA antes de virar shortlisted. */
+interface GatedCandidate {
+  opportunityId: number;
+  listingId: number;
+  listing: { id: number; title: string; url: string; city: string | null; imageUrls: string[] };
+  triage: TriageInput;
+  signal: ReturnType<typeof evaluateDealSignal>;
+  decision: AlertDecision;
+}
+
 export async function runMonitor(deps: PipelineDeps, monitor: SearchMonitor): Promise<RunSummary> {
   const { db, settings } = deps;
   const startedAt = deps.now();
   const runId = startRun(db, monitor.id, startedAt);
   const deadline = deps.deadlineMs ?? 600_000;
 
-  const summary: RunSummary = { outcome: 'ok', fetched: 0, created: 0, repriced: 0, unchanged: 0, rejected: {}, unmatched: 0, aiCalls: 0, alerts: 0 };
+  const summary: RunSummary = { outcome: 'ok', fetched: 0, created: 0, repriced: 0, unchanged: 0, rejected: {}, unmatched: 0, aiCalls: 0, aiCacheHits: 0, alerts: 0 };
   let timedOut = false;
 
   try {
     const raws = await deps.adapter.search(monitor, monitor.lastRunAt ?? new Date(startedAt.getTime() - 86_400_000));
     summary.fetched = raws.length;
     const seenIds: string[] = [];
+    const gated: GatedCandidate[] = [];
 
     for (const raw of raws) {
       if (deps.now().getTime() - startedAt.getTime() > deadline) { summary.outcome = 'partial'; timedOut = true; break; }
@@ -110,42 +121,82 @@ export async function runMonitor(deps: PipelineDeps, monitor: SearchMonitor): Pr
       const opportunityId = insertOpportunity(db, upsert.id, math, { valuationId, gatePassed: g.passed, gateReason: g.reason, createdAt: deps.now() });
       // Alerta depende da decisão de alerta (gate + confiança + cruzada), não
       // apenas do preço baixo. O sinal abaixo dá a base exibida no embed.
-      await maybeAlert();
-      if (!g.passed) continue;
-
-      setStatus(db, upsert.id, 'shortlisted');
-
-      function maybeAlert(): Promise<void> {
-        const signal = evaluateDealSignal({
-          priceCents: input.askingCents,
-          medianCents: value.valuation.medianCents,
-          samples: value.valuation.sampleSize,
-          params: monitor.params,
+      const signal = evaluateDealSignal({
+        priceCents: input.askingCents,
+        medianCents: value.valuation.medianCents,
+        samples: value.valuation.sampleSize,
+        params: monitor.params,
+      });
+      const lastCents = latestDealAlertCents(db, upsert.id);
+      // Exceção explícita portada do Scrapelytics: no cold start não existe
+      // margem para passar no gate, mas o teto manual do watch autoriza o push.
+      const coldStart = !g.passed && g.reason === 'amostra-insuficiente' && signal.basis === 'manual';
+      const decision: AlertDecision = coldStart
+        ? { shouldAlert: true, kind: 'novo', dropPct: null, reason: null }
+        : decideAlert({
+          listingId: upsert.id, askingCents: input.askingCents,
+          gatePassed: g.passed, gateReason: g.reason,
+          confidence: value.valuation.confidence, marginPct: math.marginPct,
+          floorMarginPct: settings.floorMarginPct, lastAlertCents: lastCents,
         });
-        if (!signal.deal) return Promise.resolve();
 
-        const lastCents = latestDealAlertCents(db, upsert.id);
-        // Exceção explícita portada do Scrapelytics: no cold start não existe
-        // margem para passar no gate, mas o teto manual do watch autoriza o push.
-        const coldStart = !g.passed && g.reason === 'amostra-insuficiente' && signal.basis === 'manual';
-        const decision: AlertDecision = coldStart
-          ? { shouldAlert: true, kind: 'novo', dropPct: null, reason: null }
-          : decideAlert({
-            listingId: upsert.id, askingCents: input.askingCents,
-            gatePassed: g.passed, gateReason: g.reason,
-            confidence: value.valuation.confidence, marginPct: math.marginPct,
-            floorMarginPct: settings.floorMarginPct, lastAlertCents: lastCents,
-          });
+      const listing = {
+        id: upsert.id, title: input.title, url: input.url,
+        city: input.city, imageUrls: input.imageUrls,
+      };
 
-        return deliverDealAlert({
-          db, notify: deps.notify, now: deps.now, monitor,
-          listing: {
-            id: upsert.id, title: input.title, url: input.url,
-            city: input.city, imageUrls: input.imageUrls,
-          },
+      if (!g.passed) {
+        // Passo 7: abaixo do floor nem consulta cache/IA. Só a decisão de
+        // alerta existente (cold start manual ou supressão registrada).
+        const outcome = await deliverDealAlert({
+          db, notify: deps.notify, now: deps.now, monitor, listing,
           opportunityId, signal, decision,
           channel: deps.alertChannel ?? 'ntfy', tz: deps.tz,
-        }).then((outcome) => { if (outcome.delivered) summary.alerts++; });
+        });
+        if (outcome.delivered) summary.alerts++;
+        continue;
+      }
+
+      // Passo 8: quem cruzou o floor entra na fila de triagem em lote.
+      gated.push({
+        opportunityId, listingId: upsert.id, listing,
+        triage: {
+          listingId: upsert.id, externalId: input.externalId, title: input.title,
+          askingCents: input.askingCents, description: input.description,
+          city: input.city, imageUrls: input.imageUrls,
+        },
+        signal, decision,
+      });
+    }
+
+    if (gated.length > 0) {
+      const callsBefore = deps.ai.calls;
+      const hitsBefore = deps.ai.cacheHits ?? 0;
+      let verdicts: Map<number, TriageVerdict>;
+      try {
+        verdicts = await deps.ai.triage(gated.map((c) => c.triage));
+      } catch {
+        // Porte de IA que lança não derruba a passada: ninguém opinou.
+        verdicts = new Map();
+      }
+      summary.aiCalls = Math.max(0, deps.ai.calls - callsBefore);
+      summary.aiCacheHits = Math.max(0, (deps.ai.cacheHits ?? 0) - hitsBefore);
+
+      for (const c of gated) {
+        const v = verdicts.get(c.listingId) ?? { verdict: 'unavailable' as const, reasons: ['ia-sem-opiniao'] };
+        updateOpportunityAi(db, c.opportunityId, v.verdict, v.reasons);
+        if (v.verdict === 'veto') {
+          setStatus(db, c.listingId, 'ignored');
+          continue;
+        }
+        setStatus(db, c.listingId, 'shortlisted');
+        const outcome = await deliverDealAlert({
+          db, notify: deps.notify, now: deps.now, monitor, listing: c.listing,
+          opportunityId: c.opportunityId, signal: c.signal, decision: c.decision,
+          channel: deps.alertChannel ?? 'ntfy', tz: deps.tz,
+          flags: v.verdict === 'unavailable' ? ['sem-auditoria-ia'] : [],
+        });
+        if (outcome.delivered) summary.alerts++;
       }
     }
 
