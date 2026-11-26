@@ -8,9 +8,15 @@ importers:
 
   .:
     devDependencies:
+      '@brique/ai':
+        specifier: workspace:*
+        version: link:packages/ai
       '@brique/core':
         specifier: workspace:*
         version: link:packages/core
+      '@brique/scrapers':
+        specifier: workspace:*
+        version: link:packages/scrapers
       '@types/node':
         specifier: ^24.10.1
         version: 24.19.2
@@ -67,6 +73,18 @@ importers:
         specifier: ^19.3.0
         version: 19.3.0(@types/react@19.3.3)
 
+  packages/ai:
+    dependencies:
+      '@brique/core':
+        specifier: workspace:*
+        version: link:../core
+      '@brique/scrapers':
+        specifier: workspace:*
+        version: link:../scrapers
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+
   packages/core:
     dependencies:
       better-sqlite3:
@@ -91,6 +109,9 @@ importers:
 
   packages/worker:
     dependencies:
+      '@brique/ai':
+        specifier: workspace:*
+        version: link:../ai
       '@brique/core':
         specifier: workspace:*
         version: link:../core
