@@ -1,14 +1,25 @@
+import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { loadConfig, ConfigError } from '../src/config';
 
 const base = { DATABASE_URL: 'sqlite://./data/brique.db' };
+const rootDb = join(process.cwd(), 'data', 'brique.db');
 
 describe('loadConfig', () => {
   it('aceita o mínimo absoluto', () => {
     const cfg = loadConfig(base);
-    expect(cfg.sqlitePath).toBe('./data/brique.db');
+    expect(cfg.sqlitePath).toBe(rootDb);
     expect(cfg.meliToken).toBeNull();
     expect(cfg.omniRoute.apiKey).toBeNull();
+  });
+
+  it('resolve sqlite relativo na raiz do workspace mesmo com cwd do Next', () => {
+    expect(loadConfig(base, join(process.cwd(), 'apps', 'web')).sqlitePath).toBe(rootDb);
+  });
+
+  it('preserva caminho absoluto de sqlite', () => {
+    expect(loadConfig({ DATABASE_URL: 'sqlite:///tmp/opencode/brique.db' }).sqlitePath)
+      .toBe('/tmp/opencode/brique.db');
   });
 
   it('falha nomeando a variável ausente', () => {

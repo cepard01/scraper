@@ -59,7 +59,9 @@ transporte vira `deal_alert.status = failed` e a passada segue.
 
 ## Painel
 
-`pnpm web` lê o mesmo `.env` da raiz e abre em `127.0.0.1`, sem auth (costura da VPS). Rotas:
+`pnpm web` lê o mesmo `.env` da raiz e abre em `127.0.0.1`, sem auth (costura da VPS).
+`DATABASE_URL` relativo é resolvido a partir da raiz do workspace, não do `cwd` do Next
+(`apps/web`): worker, seeds e painel abrem o mesmo arquivo. Rotas:
 `/`, `/deals`, `/listing/[id]`, `/monitors`, `/inventory`, `/pnl`, `/settings`. As telas leem os
 mesmos repositórios do worker; toda escrita passa por `packages/core/src/repo/actions.ts`, com
 retry em `SQLITE_BUSY`. Margem, ROI e dias em estoque vêm de `core/pnl`, nunca de SQL de tela.
