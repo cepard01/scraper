@@ -2,7 +2,7 @@ import type { Db } from '../db/client';
 import { getListing, setFavorite, setStatus } from '../db/repo/listings';
 import { listDealAlertsForListing, setDealAlertAction } from '../db/repo/alerts';
 import {
-  createMonitor, getMonitor, setActiveMonitor, updateMonitor,
+  createMonitor, deleteMonitor, getMonitor, setActiveMonitor, updateMonitor,
   type MonitorPatch, type MonitorWrite,
 } from '../db/repo/monitors';
 import { insertPurchase, recordSale as repoRecordSale, type NewPurchase, type NewSale } from '../db/repo/giro';
@@ -89,6 +89,10 @@ export const actions = {
       if (!getMonitor(db, id)) throw new Error(`monitor ${id} não encontrado`);
       setActiveMonitor(db, id, active, new Date());
     });
+  },
+
+  deleteMonitor(db: Db, id: number): ActionResult {
+    return run(() => deleteMonitor(db, id));
   },
 
   recordPurchase(db: Db, purchase: NewPurchase): ActionResult {

@@ -76,3 +76,9 @@ export function setActiveMonitor(db: Db, id: number, active: boolean, at: Date):
     .where(eq(searchMonitors.id, id)).run();
 }
 
+/** Exclusão é explícita: excluir um monitor não apaga anúncios nem passes já coletados. */
+export function deleteMonitor(db: Db, id: number): void {
+  if (!getMonitor(db, id)) throw new Error(`monitor ${id} não encontrado`);
+  db.delete(searchMonitors).where(eq(searchMonitors.id, id)).run();
+}
+

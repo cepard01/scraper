@@ -102,6 +102,8 @@ describe('actions', () => {
     expect(actions.createMonitor(db, {
       label: 'curto', source: 'olx', query: 'x', category: null, params: {}, intervalMinutes: 14,
     })).toEqual({ ok: false, error: 'monitor "curto" com intervalMinutes=14; mínimo 15' });
+    expect(actions.deleteMonitor(db, id)).toEqual({ ok: true });
+    expect(listMonitors(db)).toHaveLength(0);
   });
 
   it('recordPurchase/recordSale delegam ao giro e setSettings valida antes de gravar', () => {

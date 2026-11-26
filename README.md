@@ -14,6 +14,7 @@ Decisões deste merge: `docs/adr/0001-merge-scrapelytics.md` e `docs/adr/0002-nt
     pnpm seed:demo            # popula o SQLite do .env com o feed do dia 1 e 3 monitores
     pnpm seed:watches         # opcional: importa os 2 watches do ../Scrapelytics/watches.yaml
     pnpm worker               # varre os monitores e imprime a fila ranqueada
+    pnpm web                  # painel em 127.0.0.1:WEB_PORT (3000 por default)
 
 `NTFY_TOPIC` em `.env` liga as notificações de oferta (com `NTFY_BASE_URL` opcional).
 Sem tópico o worker continua rodando e registra a entrega como falha — nunca como sucesso.
@@ -33,6 +34,7 @@ codificados em RFC 2047 antes do POST, porque `fetch` recusa esses bytes em head
     pnpm smoke:olx "iphone 15"    # exige rede; deve mostrar parserVersion olx-rsc-2026-11
     pnpm smoke:meli  "iphone 12"  # exige MELI_ACCESS_TOKEN
     pnpm fixtures:record "iphone 15"   # grava flight RSC real; falha se a fonte degradar
+    pnpm --filter @brique/web build    # checa o build de produção do painel
 
     pnpm buy -- "iPhone 12 128GB" --paid 980 --listing 42   # 980 = R$ 980,00; sem --listing exige --category
     pnpm sell -- 7 --sold 1650 --platform meli               # imprime taxa, líquido, lucro e ROI
@@ -55,8 +57,20 @@ O alerta via ntfy usa a mediana elegível, ou o teto manual `manualCeilingCents`
 respeita `decideAlert` (gate, confiança, queda mínima de 10%). Uma entrega por cruzada; falha de
 transporte vira `deal_alert.status = failed` e a passada segue.
 
+## Painel
+
+`pnpm web` lê o mesmo `.env` da raiz e abre em `127.0.0.1`, sem auth (costura da VPS). Rotas:
+`/`, `/deals`, `/listing/[id]`, `/monitors`, `/inventory`, `/pnl`, `/settings`. As telas leem os
+mesmos repositórios do worker; toda escrita passa por `packages/core/src/repo/actions.ts`, com
+retry em `SQLITE_BUSY`. Margem, ROI e dias em estoque vêm de `core/pnl`, nunca de SQL de tela.
+
+`/settings` mostra só se ntfy/ML/OmniRoute estão configurados — valores de `.env` não voltam ao
+navegador. Favorito é coluna própria em `listing` (`favorite`, migração `0005`) e não confunde com
+`shortlisted`, que é estado do gate.
+
 ## Estrutura
 
     packages/core      domínio, banco, valuation, score — nunca acessa marketplace
     packages/scrapers  um SourceAdapter por fonte; único lugar que conhece cada site
     packages/worker    scheduler serial + pipeline + saída de terminal
+    apps/web           painel Next (server components + form actions)

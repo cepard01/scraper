@@ -1,0 +1,191 @@
+import { eq } from 'drizzle-orm';
+import { loadConfig } from '@brique/core/config';
+import { loadSettings } from '@brique/core/db/client-helpers';
+import type { Db } from '@brique/core/db/client';
+import {
+  comparableRefs, fingerprints, listings, opportunities,
+  pricePoints, purchases, valuations,
+} from '@brique/core/db/schema';
+import { listDealAlertsForListing } from '@brique/core/db/repo/alerts';
+import { getListing } from '@brique/core/db/repo/listings';
+import { listMonitors } from '@brique/core/db/repo/monitors';
+import { listShortlistedRanked, type RankedRow } from '@brique/core/db/repo/opportunities';
+import { listInventory } from '@brique/core/db/repo/giro';
+import { categoryStats, pnlSummary, realizedFor, stalePurchases } from '@brique/core/pnl';
+import { checkSourceHealth, type SourceHealth } from '@brique/core/source-health';
+import type { AlertStatus, Settings } from '@brique/core/types';
+
+export interface ConfigStatus {
+  ntfyConfigured: boolean;
+  meliConfigured: boolean;
+  omnirouteConfigured: boolean;
+}
+
+// Valores de segredo nunca voltam ao painel: só a presença, para não haver
+// tópico em HTML, log, snapshot nem diff. `.env` continua fora de `setting`.
+export function getConfigStatus(): ConfigStatus {
+  const cfg = loadConfig();
+  return {
+    ntfyConfigured: cfg.ntfy.topic !== null,
+    meliConfigured: cfg.meliToken !== null,
+    omnirouteConfigured: cfg.omniRoute.apiKey !== null,
+  };
+}
+
+export interface DealCard extends RankedRow {
+  favorite: boolean;
+  aiVerdict: 'pass' | 'veto' | 'unavailable' | null;
+  aiReasons: string[];
+  alertStatus: AlertStatus | null;
+  alertReason: string | null;
+  priceCount: number;
+  lastPriceCents: number | null;
+}
+
+export function getDeals(db: Db, limit = 100): DealCard[] {
+  return listShortlistedRanked(db, limit).map((row) => {
+    const opp = db.select({
+      aiVerdict: opportunities.aiVerdict, aiReasons: opportunities.aiReasons,
+    }).from(opportunities).where(eq(opportunities.id, row.opportunityId)).get();
+    const alert = listDealAlertsForListing(db, row.listingId)[0];
+    const prices = db.select({
+      askingCents: pricePoints.askingCents, observedAt: pricePoints.observedAt,
+    }).from(pricePoints).where(eq(pricePoints.listingId, row.listingId))
+      .orderBy(pricePoints.observedAt).all();
+    const listing = getListing(db, row.listingId);
+
+    return {
+      ...row,
+      favorite: listing?.favorite ?? false,
+      aiVerdict: opp?.aiVerdict ?? null,
+      aiReasons: opp?.aiReasons ?? [],
+      alertStatus: alert?.status ?? null,
+      alertReason: alert?.reason ?? null,
+      priceCount: prices.length,
+      lastPriceCents: prices.at(-1)?.askingCents ?? null,
+    };
+  });
+}
+
+export interface SourceHealthRow extends SourceHealth {
+  source: string;
+}
+
+export interface HomeData {
+  summary: ReturnType<typeof pnlSummary>;
+  health: SourceHealthRow[];
+  top: DealCard[];
+}
+
+export function getHome(db: Db, tz: string, limit = 10): HomeData {
+  const sources = Array.from(new Set(listMonitors(db).map((m) => m.source)));
+  return {
+    summary: pnlSummary(db, { tz }),
+    health: sources.map((source) => ({ source, ...checkSourceHealth(db, source) })),
+    top: getDeals(db, limit),
+  };
+}
+
+export type ListingDetail = NonNullable<ReturnType<typeof getListing>> & {
+  fingerprintLabel: string | null;
+  category: string | null;
+  opportunity: {
+    id: number; gatePassed: boolean; gateReason: string; score: number;
+    breakdown: Record<string, number>; aiVerdict: 'pass' | 'veto' | 'unavailable' | null;
+    aiReasons: string[] | null;
+  } | null;
+  valuation: {
+    sampleSize: number; medianCents: number | null; p25Cents: number | null;
+    p75Cents: number | null; fairGrossCents: number | null; delta: number;
+    liquidityDays: number; liquiditySource: string; confidence: string; computedAt: Date;
+  } | null;
+  comparables: Array<{ listingId: number; title: string; askingCents: number; role: string }>;
+  priceSeries: Array<{ askingCents: number; observedAt: Date }>;
+  alerts: ReturnType<typeof listDealAlertsForListing>;
+  purchase: { id: number; paidCents: number; status: string; boughtAt: Date } | null;
+};
+
+export function getListingDetail(db: Db, listingId: number): ListingDetail | null {
+  const listing = getListing(db, listingId);
+  if (!listing) return null;
+
+  const opportunity = db.select({
+    id: opportunities.id, gatePassed: opportunities.gatePassed, gateReason: opportunities.gateReason,
+    score: opportunities.score, breakdown: opportunities.breakdown,
+    aiVerdict: opportunities.aiVerdict, aiReasons: opportunities.aiReasons,
+    valuationId: opportunities.valuationId,
+  }).from(opportunities).where(eq(opportunities.listingId, listingId))
+    .orderBy(opportunities.id).limit(1).get() ?? null;
+
+  const valuation = opportunity?.valuationId
+    ? db.select({
+        sampleSize: valuations.sampleSize, medianCents: valuations.medianCents,
+        p25Cents: valuations.p25Cents, p75Cents: valuations.p75Cents,
+        fairGrossCents: valuations.fairGrossCents, delta: valuations.delta,
+        liquidityDays: valuations.liquidityDays, liquiditySource: valuations.liquiditySource,
+        confidence: valuations.confidence, computedAt: valuations.computedAt,
+      }).from(valuations).where(eq(valuations.id, opportunity.valuationId)).get() ?? null
+    : null;
+
+  const comparables = opportunity?.valuationId
+    ? db.select({
+        listingId: comparableRefs.listingId, title: listings.title,
+        askingCents: comparableRefs.askingCents, role: comparableRefs.role,
+      }).from(comparableRefs)
+        .innerJoin(listings, eq(listings.id, comparableRefs.listingId))
+        .where(eq(comparableRefs.valuationId, opportunity.valuationId))
+        .all()
+    : [];
+
+  const fingerprint = listing.fingerprintId
+    ? db.select({ label: fingerprints.label, category: fingerprints.category }).from(fingerprints)
+        .where(eq(fingerprints.id, listing.fingerprintId)).get()
+    : null;
+  const fingerprintLabel = fingerprint?.label ?? null;
+
+  const purchase = db.select({
+    id: purchases.id, paidCents: purchases.paidCents,
+    status: purchases.status, boughtAt: purchases.boughtAt,
+  }).from(purchases).where(eq(purchases.listingId, listingId)).limit(1).get() ?? null;
+
+  return {
+    ...listing,
+    fingerprintLabel,
+    category: fingerprint?.category ?? null,
+    opportunity: opportunity ? {
+      id: opportunity.id, gatePassed: opportunity.gatePassed, gateReason: opportunity.gateReason,
+      score: opportunity.score, breakdown: opportunity.breakdown,
+      aiVerdict: opportunity.aiVerdict, aiReasons: opportunity.aiReasons,
+    } : null,
+    valuation,
+    comparables,
+    priceSeries: db.select({
+      askingCents: pricePoints.askingCents, observedAt: pricePoints.observedAt,
+    }).from(pricePoints).where(eq(pricePoints.listingId, listingId))
+      .orderBy(pricePoints.observedAt).all(),
+    alerts: listDealAlertsForListing(db, listingId),
+    purchase,
+  };
+}
+
+export function getInventory(db: Db, now: Date, settings: Settings) {
+  return listInventory(db, now).map((row) => ({
+    ...row,
+    stale: row.daysHeld > settings.metaStaleDays,
+    referenceCents: row.purchase.refMedianCents,
+  }));
+}
+
+export function getPnl(db: Db, tz: string, now = new Date(), settings = loadSettings(db)) {
+  const ids = db.select({ id: purchases.id }).from(purchases).all();
+  return {
+    summary: pnlSummary(db, { tz }),
+    categories: categoryStats(db),
+    stale: stalePurchases(db, now, settings),
+    items: ids.map((r) => realizedFor(db, r.id)).filter((r) => r !== null),
+  };
+}
+
+export function getSettingsView(db: Db) {
+  return { settings: loadSettings(db), config: getConfigStatus() };
+}
