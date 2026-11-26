@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { openDb, migrateDb } from '../src/db/client';
 import type { Db } from '../src/db/client';
-import { createMonitor, listDue, touchRun } from '../src/db/repo/monitors';
+import { createMonitor, listDue, setMonitorMute, touchRun } from '../src/db/repo/monitors';
 import { startRun, finishRun } from '../src/db/repo/runs';
 import { runs } from '../src/db/schema';
 
@@ -17,6 +17,14 @@ describe('scheduler repos', () => {
     touchRun(db, id, t0, 5);
     expect(listDue(db, new Date('2026-10-01T12:29:00Z'))).toHaveLength(0);
     expect(listDue(db, new Date('2026-10-01T12:31:00Z')).map((m) => m.id)).toContain(id);
+  });
+
+  it('monitor muto não entra na fila, mas volta quando a mute expira', () => {
+    const id = createMonitor(db, { label: 'mudo', source: 'olx', query: 'q', category: null, params: {}, intervalMinutes: 30 });
+    const t0 = new Date('2026-10-01T12:00:00Z');
+    setMonitorMute(db, id, new Date(t0.getTime() + 3_600_000), t0);
+    expect(listDue(db, t0).map((m) => m.id)).not.toContain(id);
+    expect(listDue(db, new Date(t0.getTime() + 3_600_001)).map((m) => m.id)).toContain(id);
   });
 
   it('run guarda contadores e rejeições por motivo', () => {

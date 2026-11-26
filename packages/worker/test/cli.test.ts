@@ -4,7 +4,7 @@ import type { RankedRow } from '@brique/core/db/repo/opportunities';
 
 // R102: printShortlist era só impressa no E2E, nunca observada (bateria16: C1 e C2 VIVEU).
 const row = (over: Partial<RankedRow> = {}): RankedRow => ({
-  listingId: 1, externalId: 'DEAL-A', source: 'olx', title: 'iPhone 12 128GB Desbloqueado',
+  opportunityId: 1, listingId: 1, externalId: 'DEAL-A', source: 'olx', title: 'iPhone 12 128GB Desbloqueado',
   url: 'https://x/1', city: 'Curitiba', askingCents: 98_000, fairGrossCents: 170_850,
   marginCents: 42_014, marginPct: 0.424, expectedPerDayCents: 4_201, liquidityDays: 10,
   score: 0.774, breakdown: { profitFactor: 1, liquidityFactor: 1, confidenceFactor: 1, freshnessFactor: 1 },

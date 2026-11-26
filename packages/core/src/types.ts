@@ -85,6 +85,10 @@ export interface Settings {
   repairDefaultCents: Record<Category, Cents>;
   liquidityDefaults: Record<Category, number>;
   maxPriceCents: Cents;
+  /** Hora local (0-23) do digest diário; 9 por default. */
+  digestHourLocal: number;
+  /** Último digest confirmado; guardado em setting para não depender de restart do worker. */
+  lastDigestAt: Date | null;
 }
 
 export interface Valuation {
@@ -128,6 +132,7 @@ export interface OpportunityMath {
 
 export type AlertChannel = 'ntfy' | 'digest';
 export type AlertStatus = 'pending' | 'sent' | 'failed' | 'suppressed';
+export type AlertAction = 'taken' | 'ignored' | 'snoozed';
 
 export interface DealAlert {
   id: number;
@@ -138,6 +143,9 @@ export interface DealAlert {
   deliveredAt: Date | null;
   status: AlertStatus;
   reason: string | null;
+  ackAt: Date | null;
+  action: AlertAction | null;
+  snoozeUntil: Date | null;
   createdAt: Date;
 }
 

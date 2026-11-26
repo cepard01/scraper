@@ -29,6 +29,13 @@
       "when": 1795719933857,
       "tag": "0003_illegal_the_hand",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1795729386985,
+      "tag": "0004_fase_b_alertas",
+      "breakpoints": true
     }
   ]
 }

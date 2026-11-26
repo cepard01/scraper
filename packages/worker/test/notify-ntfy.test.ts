@@ -7,7 +7,7 @@ const TOPIC = 'topico-secreto-que-nao-pode-vazar';
 const BASE = 'https://ntfy.example';
 
 const row = (over: Partial<RankedRow> = {}): RankedRow => ({
-  listingId: 1, externalId: 'DEAL-A', source: 'olx', title: 'iPhone 12 128GB Desbloqueado',
+  opportunityId: 1, listingId: 1, externalId: 'DEAL-A', source: 'olx', title: 'iPhone 12 128GB Desbloqueado',
   url: 'https://olx.com.br/a/1', city: 'Curitiba', askingCents: 98_000, fairGrossCents: 148_000,
   marginCents: 34_000, marginPct: 0.34, expectedPerDayCents: 2_400, liquidityDays: 10,
   score: 0.81, breakdown: { profitFactor: 1, liquidityFactor: 1, confidenceFactor: 1, freshnessFactor: 1 },

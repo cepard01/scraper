@@ -20,7 +20,7 @@ export function insertOpportunity(
 }
 
 export interface RankedRow {
-  listingId: number; externalId: string; source: string; title: string; url: string;
+  opportunityId: number; listingId: number; externalId: string; source: string; title: string; url: string;
   city: string | null; askingCents: number; fairGrossCents: number | null;
   marginCents: number | null; marginPct: number | null; expectedPerDayCents: number | null;
   liquidityDays: number; score: number; breakdown: Record<string, number>;
@@ -34,6 +34,7 @@ export function listShortlistedRanked(db: Db, limit: number): RankedRow[] {
     .groupBy(opportunities.listingId);
 
   return db.select({
+      opportunityId: opportunities.id,
       listingId: opportunities.listingId,
       externalId: listings.externalId,
       source: listings.source,
