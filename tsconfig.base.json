@@ -14,6 +14,8 @@
     "paths": {
       "@brique/core": ["./packages/core/src/types.ts"],
       "@brique/core/*": ["./packages/core/src/*"],
+      "@brique/ai": ["./packages/ai/src/index.ts"],
+      "@brique/ai/*": ["./packages/ai/src/*"],
       "@brique/scrapers": ["./packages/scrapers/src/index.ts"],
       "@brique/scrapers/*": ["./packages/scrapers/src/*"]
     }

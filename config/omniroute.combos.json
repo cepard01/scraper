@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "combos": {
+    "triage.batch": {
+      "name": "brique-triage",
+      "strategy": "priority",
+      "model": "brique-triage",
+      "description": "Auditoria em lote de até 12 anúncios; pools de texto gratuitos por prioridade."
+    },
+    "normalize.product": {
+      "name": "brique-cheap",
+      "strategy": "round-robin",
+      "model": "brique-cheap",
+      "description": "Marca/modelo/variante quando o regex não casa; pool barato em rodízio."
+    },
+    "audit.vision": {
+      "name": "brique-vision",
+      "strategy": "priority",
+      "model": "brique-vision",
+      "description": "Fotos dos finalistas; modelos multimodais gratuitos por prioridade."
+    },
+    "negotiate.chat": {
+      "name": "brique-negotiation",
+      "strategy": "priority",
+      "model": "brique-negotiation",
+      "description": "Reservado pela spec §7.3; não usado nesta fase."
+    }
+  }
+}

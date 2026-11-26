@@ -1,0 +1,13 @@
+{
+  "name": "@brique/ai",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@brique/core": "workspace:*",
+    "@brique/scrapers": "workspace:*",
+    "zod": "^4.6.7"
+  }
+}
