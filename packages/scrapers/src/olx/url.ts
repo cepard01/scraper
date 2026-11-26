@@ -9,13 +9,15 @@ const slug = (s: string): string =>
 
 function locationPath(p: MonitorParams): string {
   if (p.city) return `/estado/${slug(p.city)}-e-regiao`;
-  if (p.uf) return `/estado/${slug(p.uf)}-e-regiao`;
+  // Formato validado no scrape vivo: /estado-rj?q=...&sf=1 (não /estado/rj-e-regiao).
+  if (p.uf) return `/estado-${slug(p.uf)}`;
   return '/brasil';
 }
 
 export function buildSearchUrl(monitor: SearchMonitor, page: number): string {
   const p = monitor.params;
-  const q = new URLSearchParams({ q: monitor.query });
+  // sf=1 ordena por data — formato validado no scrape vivo de 2026-11-26.
+  const q = new URLSearchParams({ q: monitor.query, sf: '1' });
   if (p.extraQuery) for (const [k, v] of new URLSearchParams(p.extraQuery)) if (k && v) q.set(k, v);
   if (p.minCents != null) q.set('f', mergeF(q.get('f'), `price_min_${Math.round(p.minCents / 100)}`));
   if (p.maxCents != null) q.set('f', mergeF(q.get('f'), `price_max_${Math.round(p.maxCents / 100)}`));

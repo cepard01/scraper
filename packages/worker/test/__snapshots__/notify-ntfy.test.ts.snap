@@ -1,0 +1,21 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`formatAlert > congela as tres linhas da §9 sem topic nem baseUrl 1`] = `
+"iPhone 12 128GB Desbloqueado — R$ 980,00
+justo R$ 1.480,00 · margem R$ 340,00 · ROI 34% · ~R$ 24,00/dia
+score 81 · Curitiba · n=9 · IA: sem indício de golpe
+https://olx.com.br/a/1"
+`;
+
+exports[`formatDigest > lista o top com score, titulo, pedido e cidade 1`] = `
+{
+  "body": "1. 81 · iPhone 12 128GB Desbloqueado · R$ 980,00 · Curitiba
+2. 81 · PS5 Slim · R$ 1.800,00 · -",
+  "clickUrl": "https://olx.com.br/a/1",
+  "priority": 3,
+  "tags": [
+    "bar_chart",
+  ],
+  "title": "Brique · top 2 · 2026-11-02",
+}
+`;

@@ -12,7 +12,7 @@ const item = payload.results[0];
 
 const monitor: SearchMonitor = {
   id: 1, label: 'iphone 12', source: 'meli', query: 'iphone 12 128gb', category: 'celular',
-  params: { pages: 1 }, intervalMinutes: 30, active: true, lastRunAt: null, lastYield: 0,
+  params: { pages: 1 }, intervalMinutes: 30, active: true, lastRunAt: null, lastYield: 0, mutedUntil: null,
 };
 
 const adapter = createMeliAdapter({

@@ -3,6 +3,7 @@ import { openDb, migrateDb, seedSettings, DEFAULT_SETTINGS, type Db } from '../s
 import { runPending, startScheduler, type SchedulerDeps } from '../src/scheduler';
 import { createMonitor } from '../src/db/repo/monitors';
 import { nullAiPort } from '../src/ai-port';
+import { nullNotifier } from '../src/notify-port';
 import { localAskingProvider } from '../src/valuation/comparables';
 import { runs } from '../src/db/schema';
 import type { SourceAdapter } from '../src/adapter-contract';
@@ -32,7 +33,7 @@ describe('runPending', () => {
     createMonitor(db, { label: 'm', source: 'meli', query: 'm', category: null, params: {}, intervalMinutes: 30 });
 
     const summaries = await runPending({
-      db, settings: DEFAULT_SETTINGS, ai: nullAiPort(), comparables: localAskingProvider, now: () => NOW,
+      db, settings: DEFAULT_SETTINGS, ai: nullAiPort(), comparables: localAskingProvider, notify: nullNotifier(), now: () => NOW,
       adapters: { olx: spyAdapter('olx', calls), meli: spyAdapter('meli', calls) },
     });
 
@@ -47,7 +48,7 @@ describe('runPending', () => {
     const meliId = createMonitor(db, { label: 'm', source: 'meli', query: 'm', category: null, params: {}, intervalMinutes: 30 });
 
     const summaries = await runPending({
-      db, settings: DEFAULT_SETTINGS, ai: nullAiPort(), comparables: localAskingProvider, now: () => NOW,
+      db, settings: DEFAULT_SETTINGS, ai: nullAiPort(), comparables: localAskingProvider, notify: nullNotifier(), now: () => NOW,
       adapters: { olx: spyAdapter('olx', calls) },
     });
 
@@ -61,7 +62,7 @@ describe('runPending', () => {
     const calls: SourceId[] = [];
     createMonitor(db, { label: 'o', source: 'olx', query: 'o', category: null, params: {}, intervalMinutes: 30 });
     const deps = {
-      db, settings: DEFAULT_SETTINGS, ai: nullAiPort(), comparables: localAskingProvider, now: () => NOW,
+      db, settings: DEFAULT_SETTINGS, ai: nullAiPort(), comparables: localAskingProvider, notify: nullNotifier(), now: () => NOW,
       adapters: { olx: spyAdapter('olx', calls) },
     };
     await runPending(deps);
@@ -88,7 +89,7 @@ describe('startScheduler', () => {
     vi.useFakeTimers();
     const passadas: number[] = [];
     const handle = startScheduler(
-      { db, settings: DEFAULT_SETTINGS, ai: nullAiPort(), comparables: localAskingProvider, now: () => new Date(), adapters: { olx: lenta } },
+      { db, settings: DEFAULT_SETTINGS, ai: nullAiPort(), comparables: localAskingProvider, notify: nullNotifier(), now: () => new Date(), adapters: { olx: lenta } },
       1_000,
       (summaries) => passadas.push(summaries.length),
     );

@@ -45,6 +45,13 @@ export interface MonitorParams {
   minCents?: Cents;
   maxCents?: Cents;
   pages?: number;
+  pageDelayMs?: number;
+  requireWords?: string[];
+  manualCeilingCents?: Cents;
+  /** Regra de alerta do watch importado: desconto mínimo sobre a base. */
+  belowMedianPct?: number;
+  /** Amostras mínimas para confiar na mediana; abaixo dela, usa o teto manual. */
+  minSamples?: number;
   extraQuery?: string;
 }
 
@@ -59,6 +66,7 @@ export interface SearchMonitor {
   active: boolean;
   lastRunAt: Date | null;
   lastYield: number;
+  mutedUntil: Date | null;
 }
 
 export interface Settings {
@@ -116,4 +124,34 @@ export interface OpportunityMath {
   liquidityDays: number;
   score: number;
   breakdown: ScoreBreakdown;
+}
+
+export type AlertChannel = 'ntfy' | 'digest';
+export type AlertStatus = 'pending' | 'sent' | 'failed' | 'suppressed';
+
+export interface DealAlert {
+  id: number;
+  opportunityId: number;
+  listingId: number;
+  channel: AlertChannel;
+  alertedAtCents: Cents;
+  deliveredAt: Date | null;
+  status: AlertStatus;
+  reason: string | null;
+  createdAt: Date;
+}
+
+export type PurchaseStatus = 'in_stock' | 'listed' | 'sold' | 'returned' | 'lost';
+
+export interface Purchase {
+  id: number; listingId: number | null; fingerprintId: number | null; label: string;
+  category: Category; paidCents: Cents; shippingInCents: Cents; repairCents: Cents;
+  otherCostsCents: Cents; feesInCents: Cents; refMedianCents: Cents | null;
+  boughtAt: Date; status: PurchaseStatus; closedAt: Date | null; notes: string | null;
+}
+
+export interface Sale {
+  id: number; purchaseId: number; soldCents: Cents; platform: string;
+  platformFeeCents: Cents; shippingOutCents: Cents; otherCostsCents: Cents;
+  soldAt: Date; buyerRef: string | null;
 }

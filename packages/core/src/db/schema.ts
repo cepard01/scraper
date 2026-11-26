@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { integer, text, real, sqliteTable, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
-import type { Category, Confidence, Cents, GateReason, Grade, ListingStatus, MonitorParams, SourceId, Valuation } from '../types';
+import type { Category, Confidence, Cents, GateReason, Grade, ListingStatus, MonitorParams, PurchaseStatus, SourceId, Valuation } from '../types';
 
 const ts = (name: string) => integer(name, { mode: 'timestamp_ms' });
 
@@ -15,6 +15,7 @@ export const searchMonitors = sqliteTable('search_monitor', {
   active: integer('active', { mode: 'boolean' }).notNull().default(true),
   lastRunAt: ts('last_run_at'),
   lastYield: integer('last_yield').notNull().default(0),
+  mutedUntil: ts('muted_until'),
   createdAt: ts('created_at').notNull(),
   updatedAt: ts('updated_at').notNull(),
 });
@@ -53,6 +54,7 @@ export const listings = sqliteTable('listing', {
   dupeOf: integer('dupe_of'),
   rawPayload: text('raw_payload', { mode: 'json' }),
   parserVersion: text('parser_version').notNull(),
+  eligible: integer('eligible', { mode: 'boolean' }).notNull().default(true),
 }, (t) => [
   uniqueIndex('u_listing_source_ext').on(t.source, t.externalId),
   index('i_listing_fingerprint').on(t.fingerprintId),
@@ -127,8 +129,51 @@ export const runs = sqliteTable('run', {
   error: text('error'),
 });
 
+export const dealAlerts = sqliteTable('deal_alert', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  opportunityId: integer('opportunity_id').notNull().references(() => opportunities.id),
+  listingId: integer('listing_id').notNull(),
+  channel: text('channel').$type<'ntfy' | 'digest'>().notNull().default('ntfy'),
+  alertedAtCents: integer('alerted_at_cents').$type<Cents>().notNull(),
+  deliveredAt: ts('delivered_at'),
+  status: text('status').$type<'pending' | 'sent' | 'failed' | 'suppressed'>().notNull().default('pending'),
+  reason: text('reason'),
+  createdAt: ts('created_at').notNull(),
+}, (t) => [index('i_alert_listing').on(t.listingId, t.createdAt)]);
+
 export const settings = sqliteTable('setting', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),
   updatedAt: ts('updated_at').notNull(),
 });
+
+export const purchases = sqliteTable('purchase', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  listingId: integer('listing_id'),
+  fingerprintId: integer('fingerprint_id'),
+  label: text('label').notNull(),
+  category: text('category').$type<Category>().notNull(),
+  paidCents: integer('paid_cents').$type<Cents>().notNull(),
+  shippingInCents: integer('shipping_in_cents').$type<Cents>().notNull().default(0),
+  repairCents: integer('repair_cents').$type<Cents>().notNull().default(0),
+  otherCostsCents: integer('other_costs_cents').$type<Cents>().notNull().default(0),
+  feesInCents: integer('fees_in_cents').$type<Cents>().notNull().default(0),
+  refMedianCents: integer('ref_median_cents').$type<Cents | null>(),
+  boughtAt: ts('bought_at').notNull(),
+  status: text('status').$type<PurchaseStatus>().notNull().default('in_stock'),
+  closedAt: ts('closed_at'),
+  notes: text('notes'),
+  createdAt: ts('created_at').notNull(),
+}, (t) => [index('i_purchase_status').on(t.status), index('i_purchase_fp').on(t.fingerprintId, t.category)]);
+
+export const sales = sqliteTable('sale', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  purchaseId: integer('purchase_id').notNull().references(() => purchases.id),
+  soldCents: integer('sold_cents').$type<Cents>().notNull(),
+  platform: text('platform').notNull(),
+  platformFeeCents: integer('platform_fee_cents').$type<Cents>().notNull(),
+  shippingOutCents: integer('shipping_out_cents').$type<Cents>().notNull().default(0),
+  otherCostsCents: integer('other_costs_cents').$type<Cents>().notNull().default(0),
+  soldAt: ts('sold_at').notNull(),
+  buyerRef: text('buyer_ref'),
+}, (t) => [uniqueIndex('u_sale_purchase').on(t.purchaseId), index('i_sale_time').on(t.soldAt)]);

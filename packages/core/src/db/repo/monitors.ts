@@ -9,7 +9,7 @@ export function listDue(db: Db, now: Date): SearchMonitor[] {
     .map((r) => ({
       id: r.id, label: r.label, source: r.source, query: r.query, category: r.category,
       params: r.params, intervalMinutes: r.intervalMinutes, active: r.active,
-      lastRunAt: r.lastRunAt, lastYield: r.lastYield,
+      lastRunAt: r.lastRunAt, lastYield: r.lastYield, mutedUntil: r.mutedUntil,
     }))
     .filter((m) => !m.lastRunAt || now.getTime() - m.lastRunAt.getTime() >= m.intervalMinutes * 60_000);
 }

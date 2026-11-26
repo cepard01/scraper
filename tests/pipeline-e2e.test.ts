@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { openDb, migrateDb, seedSettings, DEFAULT_SETTINGS } from '@brique/core/db/client-helpers';
 import { runMonitor } from '@brique/core/pipeline';
 import { nullAiPort } from '@brique/core/ai-port';
+import { nullNotifier } from '@brique/core/notify-port';
 import { localAskingProvider } from '@brique/core/valuation/comparables';
 import { listShortlistedRanked } from '@brique/core/db/repo/opportunities';
 import { createMonitor } from '@brique/core/db/repo/monitors';
@@ -32,8 +33,8 @@ describe('feed day1', () => {
         async fetchOne() { throw new Error('n/a'); },
         toListingInput(raw) { return raw.payload as never; },
       },
-      ai, comparables: localAskingProvider, now: () => NOW,
-    }, { id: monitorId, label: 'day1', source: 'olx', query: 'day1', category: null, params: {}, intervalMinutes: 30, active: true, lastRunAt: null, lastYield: 0 });
+      ai, comparables: localAskingProvider, notify: nullNotifier(), now: () => NOW,
+    }, { id: monitorId, label: 'day1', source: 'olx', query: 'day1', category: null, params: {}, intervalMinutes: 30, active: true, lastRunAt: null, lastYield: 0, mutedUntil: null });
 
     expect(ai.calls).toBe(0);
     expect(summary.created).toBe(DAY1.length);
