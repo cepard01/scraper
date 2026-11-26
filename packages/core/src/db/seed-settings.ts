@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { settings } from './schema';
 import type { Db } from './client';
-import type { Category, Settings } from '../types';
+import type { AiTask, Category, Settings } from '../types';
 
 const categoryRecord = <T extends z.ZodTypeAny>(value: T) =>
   z.object({
@@ -12,6 +12,12 @@ const categoryRecord = <T extends z.ZodTypeAny>(value: T) =>
 
 const cents = z.number().int().nonnegative();
 const pct = z.number().min(0);
+const aiTasks = z.object({
+  'triage.batch': z.number().int().nonnegative(),
+  'normalize.product': z.number().int().nonnegative(),
+  'audit.vision': z.number().int().nonnegative(),
+  'negotiate.chat': z.number().int().nonnegative(),
+}).strict() as unknown as z.ZodType<Record<AiTask, number>>;
 
 // A tabela setting também guarda chaves namespaced de dedupe de health. Só as
 // chaves conhecidas entram em Settings: um `health.*` ali não é config e não
@@ -34,6 +40,8 @@ export const SettingsSchema = z.object({
   maxPriceCents: cents,
   digestHourLocal: z.number().int().min(0).max(23),
   lastDigestAt: z.coerce.date().nullable(),
+  aiDailyLimits: aiTasks,
+  aiPaused: z.boolean(),
 }).strict() satisfies z.ZodType<Settings>;
 
 export class SettingsError extends Error {
@@ -58,6 +66,8 @@ export const DEFAULT_SETTINGS: Settings = {
   maxPriceCents: 200_000_000,
   digestHourLocal: 9,
   lastDigestAt: null,
+  aiDailyLimits: { 'triage.batch': 200, 'normalize.product': 100, 'audit.vision': 40, 'negotiate.chat': 0 },
+  aiPaused: false,
 };
 
 const KNOWN_KEYS = new Set(Object.keys(DEFAULT_SETTINGS));

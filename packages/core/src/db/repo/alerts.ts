@@ -13,6 +13,7 @@ export interface InsertAlertArgs {
   ackAt?: Date | null;
   action?: AlertAction | null;
   snoozeUntil?: Date | null;
+  flags?: string[];
   createdAt: Date;
 }
 
@@ -27,6 +28,7 @@ export function insertDealAlert(db: Db, a: InsertAlertArgs): number {
     ackAt: a.ackAt ?? null,
     action: a.action ?? null,
     snoozeUntil: a.snoozeUntil ?? null,
+    flags: a.flags ?? [],
     createdAt: a.createdAt,
   }).returning({ id: dealAlerts.id }).get().id;
 }

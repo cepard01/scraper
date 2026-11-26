@@ -89,7 +89,13 @@ export interface Settings {
   digestHourLocal: number;
   /** Último digest confirmado; guardado em setting para não depender de restart do worker. */
   lastDigestAt: Date | null;
+  /** Teto diário de requisições por tarefa no OmniRoute (§7.4). */
+  aiDailyLimits: Record<AiTask, number>;
+  /** Espelho do estado de orçamento/circuito para o painel; escrito pelo worker. */
+  aiPaused: boolean;
 }
+
+export type AiTask = 'triage.batch' | 'normalize.product' | 'audit.vision' | 'negotiate.chat';
 
 export interface Valuation {
   fingerprintId: number;
@@ -146,6 +152,7 @@ export interface DealAlert {
   ackAt: Date | null;
   action: AlertAction | null;
   snoozeUntil: Date | null;
+  flags: string[];
   createdAt: Date;
 }
 

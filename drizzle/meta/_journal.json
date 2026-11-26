@@ -43,6 +43,13 @@
       "when": 1795732431354,
       "tag": "0005_fair_mach_iv",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1795735403081,
+      "tag": "0006_famous_crystal",
+      "breakpoints": true
     }
   ]
 }
