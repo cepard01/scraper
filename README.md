@@ -18,6 +18,12 @@ Decisões deste merge: `docs/adr/0001-merge-scrapelytics.md` e `docs/adr/0002-nt
 `NTFY_TOPIC` em `.env` liga as notificações de oferta (com `NTFY_BASE_URL` opcional).
 Sem tópico o worker continua rodando e registra a entrega como falha — nunca como sucesso.
 Nada de tópico em log, banco de settings ou diff.
+
+Para receber no celular: o `ntfy.sh` não tem cadastro — o tópico é a credencial. Gere um sufixo
+aleatório (32 hex serve), subscreva nele no app Android/iOS ou na web app do ntfy e cole o mesmo
+valor em `NTFY_TOPIC`. No Android, ligue *Instant delivery*: sem ela o Firebase pode atrasar
+minutos e o critério de push em < 60 s não vale. Títulos com caracteres fora de Latin-1 são
+codificados em RFC 2047 antes do POST, porque `fetch` recusa esses bytes em header.
 `seed:watches` é idempotente (label + source + query) e o YAML não é lido em runtime.
 
 ## Comandos

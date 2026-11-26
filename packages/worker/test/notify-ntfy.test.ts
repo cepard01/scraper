@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { formatAlert, formatDigest, createNtfy } from '../src/notify-ntfy';
+import { formatAlert, formatDigest, createNtfy, encodeHeaderValue } from '../src/notify-ntfy';
 import { NULL_NOTIFY_REASON } from '@brique/core/notify-port';
 import type { RankedRow } from '@brique/core/db/repo/opportunities';
 
@@ -62,10 +62,27 @@ describe('createNtfy', () => {
     expect(captured).not.toBeNull();
     expect(captured!.url).toBe(`${BASE}/${TOPIC}`);
     expect(captured!.body).toBe(msg.body);
-    expect(captured!.headers.Title).toBe(msg.title);
+    expect(captured!.headers.Title).toBe(encodeHeaderValue(msg.title));
     expect(captured!.headers.Priority).toBe('4');
     expect(captured!.headers.Tags).toBe('moneybag');
     expect(captured!.headers.Click).toBe(row().url);
+  });
+
+  it('titulo com travessao e emoji e aceito pelo fetch de verdade', async () => {
+    let captured: { headers: Record<string, string> } | null = null;
+    const post = async (_url: string, _body: string, init?: { headers?: Record<string, string> }) => {
+      captured = { headers: init?.headers ?? {} };
+      return { status: 200, text: '', json: <T>() => null as T };
+    };
+    const msg = formatAlert(row({ title: 'iPhone 15 — 256GB 💥' }), null);
+    const res = await createNtfy({ post, baseUrl: BASE, topic: TOPIC }).send(msg);
+    const title = captured!.headers.Title!;
+
+    expect(res.ok).toBe(true);
+    expect(title).toMatch(/^=\?UTF-8\?B\?/);
+    expect(Buffer.from(title.match(/B\?([^?]+)\?=/)![1]!, 'base64').toString('utf8')).toBe(msg.title);
+    // O contrato que quebrava em producao: undici recusa code point > 255 em header.
+    expect(() => new Request('https://ntfy.invalid/', { method: 'POST', headers: captured!.headers })).not.toThrow();
   });
 
   it('erro do transporte vira ok:false, sem lancar', async () => {

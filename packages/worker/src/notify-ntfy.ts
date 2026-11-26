@@ -12,6 +12,15 @@ export const DIGEST_TAGS = ['bar_chart'];
 
 const pct = (v: number): string => `${Math.round(v * 100)}%`;
 
+// Título de marketplace traz travessão, aspas curvas e emoji. Node/undici recusa
+// header value com code point > 255 antes de qualquer request sair — o POST
+// inteiro virava 'network' e o alerta ficava failed. ntfy entende RFC 2047;
+// codificar só o que precisa mantém o título original legível no celular.
+export const encodeHeaderValue = (value: string): string =>
+  /^[\x00-\xFF]*$/.test(value)
+    ? value
+    : `=?UTF-8?B?${Buffer.from(value, 'utf8').toString('base64')}?=`;
+
 export function formatAlert(r: RankedRow, aiVerdict: string | null): AlertMessage {
   const justo = r.fairGrossCents === null ? 'n/d' : formatBRL(r.fairGrossCents);
   const margem = r.marginCents === null ? 'n/d' : formatBRL(r.marginCents);
@@ -64,11 +73,11 @@ export function createNtfy(opts: { post: HttpPost; baseUrl: string; topic: strin
     async send(m) {
       const headers: Record<string, string> = {
         'Content-Type': 'text/plain; charset=utf-8',
-        Title: m.title,
+        Title: encodeHeaderValue(m.title),
         Priority: String(m.priority),
-        Tags: m.tags.join(','),
+        Tags: encodeHeaderValue(m.tags.join(',')),
       };
-      if (m.clickUrl.length > 0) headers.Click = m.clickUrl;
+      if (m.clickUrl.length > 0) headers.Click = encodeHeaderValue(m.clickUrl);
 
       const res = await opts.post(url, m.body, { headers });
       if (res.error) return { ok: false, error: res.error };
