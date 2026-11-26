@@ -28,6 +28,7 @@ describe('meli auth', () => {
   it('nenhum endpoint carrega o token na query string', () => {
     const url = searchUrl('MLB', 'iphone 12', LIMIT, LIMIT);
     expect(url).toBe(`${HOST}/sites/MLB/search?q=iphone+12&limit=50&offset=50`);
+    expect(searchUrl('MLB', 'iphone 12', LIMIT, LIMIT, 'pr')).toBe(`${HOST}/sites/MLB/search?q=iphone+12&limit=50&offset=50&state=BR-PR`);
     expect(itemUrl('MLB1111111111')).toBe(`${HOST}/items/MLB1111111111`);
     expect(meliHeaders('fake')).toEqual({ authorization: 'Bearer fake' });
     expect(meliHeaders(null)).toEqual({});
@@ -130,6 +131,22 @@ describe('meli adapter', () => {
     expect(raws[0]!.externalId).toBe('MLB1111111111');
     expect(isMeliItem(raws[0]!.payload)).toBe(true);
     expect(raws[0]!.url).toBe(item.permalink);
+  });
+
+  it('params.uf manda state=BR-UF e descarta item de outro estado', async () => {
+    const calls: Call[] = []; const gaps: number[] = [];
+    const comUf = adapterDe([{ status: 200, body: corpo(payload.results) }], calls, gaps);
+    const raws = await comUf.search({ ...monitor, params: { pages: 1, uf: 'pr' } }, new Date());
+    expect(calls[0]!.url).toContain('state=BR-PR');
+    expect(raws.map((r) => r.externalId)).toEqual(['MLB1111111111']);
+  });
+
+  it('uf sem estado no payload confia no filtro da API em vez de descartar', async () => {
+    const calls: Call[] = []; const gaps: number[] = [];
+    const semEndereco = { ...item, id: 'MLB9999999999', address: undefined };
+    const comUf = adapterDe([{ status: 200, body: corpo([semEndereco]) }], calls, gaps);
+    const raws = await comUf.search({ ...monitor, params: { pages: 1, uf: 'PR' } }, new Date());
+    expect(raws.map((r) => r.externalId)).toEqual(['MLB9999999999']);
   });
 
   it('payload que nao veio da API vira rejeicao, nao TypeError', () => {

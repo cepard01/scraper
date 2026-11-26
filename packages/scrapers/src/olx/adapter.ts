@@ -2,7 +2,7 @@ import { parsePriceBRL } from '@brique/core/money';
 import type { ListingInput, RawListing, SearchMonitor } from '@brique/core/types';
 import type { HttpGet } from '../http';
 import { sleep, jitter } from '../http';
-import { parseOlxPage, type OlxAd } from './extract';
+import { parseOlxDetailPage, parseOlxPage, type OlxAd } from './extract';
 import { buildSearchUrl, HOST, MAX_PAGES } from './url';
 import type { SourceAdapter } from '../contract';
 
@@ -50,8 +50,23 @@ export function createOlxAdapter(deps: OlxAdapterDeps): SourceAdapter {
 
     async fetchOne(externalId: string) {
       const res = await deps.http(`${HOST}/anuncio/${externalId}`);
-      const ad = parseOlxPage(res.text).ads.find((a) => a.externalId === externalId);
-      if (!ad) throw new Error(`olx: anuncio ${externalId} nao esta no corpo (status ${res.status}) — pagina viva que nao traz o proprio anuncio no blob e achado de contrato (fetchOne so recebe id), nao do parser`);
+      if (res.status !== 200) throw new Error(`olx: anuncio ${externalId} status ${res.status}${res.error ? ` / ${res.error}` : ''}`);
+      let ad = parseOlxPage(res.text).ads.find((a) => a.externalId === externalId)
+        ?? parseOlxDetailPage(res.text, externalId);
+
+      // /anuncio/<id> responde 200 com página genérica quando o slug/região
+      // mudou. A busca por id é o único caminho que ainda devolve o anúncio
+      // sem saber o slug, e não dilui o id pedido: só aceita match exato.
+      if (!ad) {
+        const byId: SearchMonitor = {
+          id: 0, label: externalId, source: 'olx', query: externalId, category: null,
+          params: { pages: 1 }, intervalMinutes: 30, active: true, lastRunAt: null,
+          lastYield: 0, mutedUntil: null,
+        };
+        const found = await deps.http(buildSearchUrl(byId, 1));
+        if (found.status === 200) ad = parseOlxPage(found.text).ads.find((a) => a.externalId === externalId) ?? null;
+      }
+      if (!ad) throw new Error(`olx: anuncio ${externalId} sem Product/JSON-LD nem RSC no corpo (status ${res.status})`);
       return { source: 'olx' as const, externalId: ad.externalId, url: ad.url, fetchedAt: new Date(), payload: ad };
     },
 

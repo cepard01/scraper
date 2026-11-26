@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { parseNextData, findAds, toAd, parseCardHtml } from '../src/olx/extract';
+import { parseNextData, findAds, toAd, parseCardHtml, parseOlxDetailPage } from '../src/olx/extract';
 import { createOlxAdapter, isOlxAd } from '../src/olx/adapter';
 import { isRejected } from '../src/contract';
 import { buildSearchUrl, MAX_PAGES } from '../src/olx/url';
@@ -8,6 +8,7 @@ import type { SearchMonitor } from '@brique/core/types';
 
 const blob = JSON.parse(readFileSync('tests/fixtures/olx/search-iphone-12.json', 'utf8'));
 const html = readFileSync('tests/fixtures/olx/search-no-blob.html', 'utf8');
+const detailHtml = readFileSync('tests/fixtures/olx/detail-1546860872.html', 'utf8');
 
 const monitor: SearchMonitor = {
   id: 1, label: 'iphone 12', source: 'olx', query: 'iphone 12', category: 'celular',
@@ -159,6 +160,36 @@ describe('createOlxAdapter.fetchOne', () => {
   it('pagina que devolve outros anuncios nao passa por este id: soft 404 lanca', async () => {
     const calls: string[] = []; const gaps: number[] = [];
     await expect(adapterDe([{ status: 200, text: adsHtml }], calls, gaps).fetchOne('9999999')).rejects.toThrow(/9999999/);
+  });
+
+  it('pagina de detalhe sem RSC sai do Product JSON-LD com id, preço e UF', async () => {
+    const calls: string[] = []; const gaps: number[] = [];
+    const raw = await adapterDe([{ status: 200, text: detailHtml }], calls, gaps).fetchOne('1546860872');
+    expect(raw.externalId).toBe('1546860872');
+    expect(raw.payload).toMatchObject({
+      title: 'iPhone 15 pro Max 256GB - Grafite', priceRaw: 'R$ 4.300',
+      priceCents: 430_000, uf: 'AM', city: 'Manaus',
+    });
+    const li = createOlxAdapter({ http: async () => ({ status: 200, text: '', error: undefined, json: () => null as never }) }).toListingInput(raw);
+    expect(li).toMatchObject({ askingCents: 430_000, uf: 'AM', city: 'Manaus' });
+  });
+
+  it('detalhe genérico cai na busca por id e ainda exige match exato', async () => {
+    const calls: string[] = []; const gaps: number[] = [];
+    const adapter = adapterDe([
+      { status: 200, text: detailHtml },
+      { status: 200, text: adsHtml },
+    ], calls, gaps);
+    const raw = await adapter.fetchOne('1001');
+    expect(calls).toHaveLength(2);
+    expect(calls[1]).toContain('q=1001');
+    expect(raw.externalId).toBe('1001');
+  });
+
+  it('detalhe de outro id não é devolvido como se fosse o pedido', async () => {
+    expect(parseOlxDetailPage(detailHtml, '9999999')).toBeNull();
+    const calls: string[] = []; const gaps: number[] = [];
+    await expect(adapterDe([{ status: 200, text: detailHtml }], calls, gaps).fetchOne('9999999')).rejects.toThrow(/sem Product/);
   });
 });
 
