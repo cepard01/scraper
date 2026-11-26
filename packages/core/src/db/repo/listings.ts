@@ -106,6 +106,11 @@ export function setEligible(db: Db, listingId: number, eligible: boolean): void 
   db.update(listings).set({ eligible }).where(eq(listings.id, listingId)).run();
 }
 
+/** Favorito é decisão do painel; não altera status, score nem elegibilidade. */
+export function setFavorite(db: Db, listingId: number, favorite: boolean): void {
+  db.update(listings).set({ favorite }).where(eq(listings.id, listingId)).run();
+}
+
 export function markGone(db: Db, source: SourceId, seenExternalIds: string[], now: Date, monitorId?: number): number {
   const scoped = monitorId === undefined ? undefined : eq(listings.monitorId, monitorId);
   const active = db.select({ externalId: listings.externalId, id: listings.id })
