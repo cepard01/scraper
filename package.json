@@ -22,6 +22,7 @@
     "smoke:meli": "tsx packages/scrapers/src/meli/smoke.ts"
   },
   "devDependencies": {
+    "@brique/ai": "workspace:*",
     "@brique/core": "workspace:*",
     "@types/node": "^24.10.1",
     "drizzle-kit": "^0.31.11",

@@ -113,3 +113,10 @@ export function setSettings(db: Db, patch: Partial<Settings>): Settings {
   }
   return next;
 }
+
+/** Espelho atômico do estado do orçamento/circuito: não sobrescreve outras chaves. */
+export function setAiPaused(db: Db, paused: boolean): void {
+  const now = new Date();
+  db.run(sql`insert into setting (key, value, updated_at) values ('aiPaused', ${JSON.stringify(paused)}, ${now.getTime()})
+              on conflict(key) do update set value = excluded.value, updated_at = excluded.updated_at`);
+}
