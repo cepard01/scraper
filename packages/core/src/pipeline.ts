@@ -30,6 +30,7 @@ export interface PipelineDeps {
   /** Transporte obrigatório: na máquina sem webhook, quem compõe deps passa nullNotifier(). */
   notify: NotifyPort;
   alertChannel?: AlertChannel;
+  tz?: string;
   now: () => Date;
   deadlineMs?: number;
   outPlatform?: string;
@@ -143,7 +144,7 @@ export async function runMonitor(deps: PipelineDeps, monitor: SearchMonitor): Pr
             city: input.city, imageUrls: input.imageUrls,
           },
           opportunityId, signal, decision,
-          channel: deps.alertChannel ?? 'ntfy',
+          channel: deps.alertChannel ?? 'ntfy', tz: deps.tz,
         }).then((outcome) => { if (outcome.delivered) summary.alerts++; });
       }
     }
