@@ -55,6 +55,9 @@ export const listings = sqliteTable('listing', {
   rawPayload: text('raw_payload', { mode: 'json' }),
   parserVersion: text('parser_version').notNull(),
   eligible: integer('eligible', { mode: 'boolean' }).notNull().default(true),
+  // Fase C: favorito é escolha do painel, não estado do pipeline. Coluna própria
+  // para não fingir que 'shortlisted' (gate) e favorito (operador) são a mesma coisa.
+  favorite: integer('favorite', { mode: 'boolean' }).notNull().default(false),
 }, (t) => [
   uniqueIndex('u_listing_source_ext').on(t.source, t.externalId),
   index('i_listing_fingerprint').on(t.fingerprintId),

@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { z } from 'zod';
 
 export class ConfigError extends Error {
@@ -36,7 +38,21 @@ const emptyToNull = (v: string | undefined): string | null => (v && v.length > 0
 const blankToUndefined = (env: NodeJS.ProcessEnv): Record<string, string | undefined> =>
   Object.fromEntries(Object.entries(env).map(([k, v]) => [k, v === '' ? undefined : v]));
 
-export function parseSqlitePath(databaseUrl: string): string {
+// Worker e CLI rodam na raiz; o Next roda com cwd em apps/web. Um caminho
+// relativo em .env precisa apontar para o mesmo arquivo nos dois casos —
+// senão o painel abre um SQLite vazio dentro de apps/web/data e estoura
+// "no such table" na primeira query.
+function repoRoot(from: string): string {
+  let dir = resolve(from);
+  for (;;) {
+    if (existsSync(join(dir, 'pnpm-workspace.yaml'))) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) return resolve(from);
+    dir = parent;
+  }
+}
+
+export function parseSqlitePath(databaseUrl: string, cwd = process.cwd()): string {
   if (!databaseUrl.startsWith('sqlite://')) {
     const scheme = /^([a-z][a-z0-9+.-]*):\/\//i.exec(databaseUrl)?.[1] ?? 'sem esquema';
     throw new ConfigError(`DATABASE_URL precisa começar com sqlite:// nesta fase (esquema recebido: "${scheme}"). Postgres chega na migração para VPS.`);
@@ -45,10 +61,10 @@ export function parseSqlitePath(databaseUrl: string): string {
   if (path.length === 0) {
     throw new ConfigError('DATABASE_URL precisa de um caminho depois de sqlite:// (ex.: sqlite://./data/brique.db).');
   }
-  return path;
+  return isAbsolute(path) ? path : resolve(repoRoot(cwd), path);
 }
 
-export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
+export function loadConfig(env: NodeJS.ProcessEnv = process.env, cwd = process.cwd()): Config {
   const parsed = EnvSchema.safeParse(blankToUndefined(env));
   if (!parsed.success) {
     const names = parsed.error.issues.map((i) => (i.path[0] ?? '?') as string).join(', ');
@@ -57,7 +73,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const e = parsed.data;
   return {
     databaseUrl: e.DATABASE_URL,
-    sqlitePath: parseSqlitePath(e.DATABASE_URL),
+    sqlitePath: parseSqlitePath(e.DATABASE_URL, cwd),
     meliToken: emptyToNull(e.MELI_ACCESS_TOKEN),
     meliUnit: e.MELI_UNIT,
     omniRoute: { baseUrl: e.OMNIROUTE_BASE_URL, apiKey: emptyToNull(e.OMNIROUTE_API_KEY) },
