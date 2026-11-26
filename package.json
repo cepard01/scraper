@@ -2,7 +2,9 @@
   "name": "brique",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22.22.2 <23 || >=24.0.0 <27" },
+  "engines": {
+    "node": ">=22.22.2 <23 || >=24.0.0 <27"
+  },
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
@@ -13,6 +15,7 @@
     "pnl": "tsx packages/worker/src/giro.ts pnl",
     "db:migrate": "tsx packages/core/src/db/migrate.ts",
     "seed:demo": "tsx scripts/seed-demo.ts",
+    "seed:watches": "tsx scripts/seed-watches.ts",
     "fixtures:record": "tsx scripts/record-fixtures.ts",
     "smoke:olx": "tsx packages/scrapers/src/olx/smoke.ts",
     "smoke:meli": "tsx packages/scrapers/src/meli/smoke.ts"
@@ -24,6 +27,8 @@
     "drizzle-orm": "^0.45.4",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.7"
   }
 }
