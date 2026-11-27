@@ -250,7 +250,7 @@ interface JsonLdProduct {
   name?: string;
   description?: string;
   url?: string;
-  image?: Array<string | { contentUrl?: string; url?: string }>;
+  image?: string | { contentUrl?: string; url?: string } | Array<string | { contentUrl?: string; url?: string }>;
   offers?: { price?: string | number; priceCurrency?: string };
 }
 
@@ -279,26 +279,32 @@ export function parseOlxDetailPage(html: string, expectedId?: string): OlxAd | n
   const city = flat.match(/"municipality"\s*:\s*"([^"\\]+)"/)?.[1] ?? null;
   const subject = flat.match(/"subject"\s*:\s*"([^"\\]+)"/)?.[1] ?? null;
   const priceValue = flat.match(/"priceValue"\s*:\s*"([^"\\]+)"/)?.[1] ?? null;
-  const imageUrls = (product.image ?? [])
+  // JSON-LD aceita image como string, ImageObject ou array. O parse não pode
+  // lançar só porque o anúncio veio com uma foto em vez de uma lista delas.
+  const imageField = product.image;
+  const images = Array.isArray(imageField) ? imageField : imageField ? [imageField] : [];
+  const imageUrls = images
     .map((i) => (typeof i === 'string' ? i : (i.contentUrl ?? i.url ?? '')))
     .filter((u) => /^https?:\/\//.test(u))
     .slice(0, 12);
   const cover = metaContent(html, 'og:image');
   if (cover && !imageUrls.includes(cover)) imageUrls.unshift(cover);
 
-  const numericPrice = typeof product.offers?.price === 'string'
-    ? Number(product.offers.price.replace(',', '.'))
-    : product.offers?.price;
-  const priceRaw = priceValue ?? (numericPrice !== undefined ? `R$ ${numericPrice}` : '');
+  // "4.300" é milhar, não decimal: Number() daria 4.3 e o anúncio entraria com
+  // preço 1000x menor. parsePriceBRL já decide o separador pelo último grupo.
+  const offerPrice = product.offers?.price;
+  const priceRaw = priceValue ?? (offerPrice !== undefined ? `R$ ${offerPrice}` : '');
+  const parsedPrice = priceRaw ? parsePriceBRL(priceRaw) : null;
   const url = product.url ?? metaContent(html, 'og:url') ?? '';
   const title = (subject ?? product.name ?? metaContent(html, 'og:title') ?? '').trim();
   if (!title || !url) return null;
 
   return {
     externalId: String(product.identifier), title, priceRaw,
-    priceCents: typeof numericPrice === 'number' && Number.isFinite(numericPrice) && numericPrice > 0
-      ? Math.round(numericPrice * 100)
-      : undefined,
+    priceCents: parsedPrice?.ok ? parsedPrice.cents
+      : typeof offerPrice === 'number' && Number.isFinite(offerPrice) && offerPrice > 0
+        ? Math.round(offerPrice * 100)
+        : undefined,
     url, city, uf,
     description: (product.description ?? '').replace(/<br\s*\/?>/gi, '\n'),
     imageUrls: imageUrls.slice(0, 12), sellerRef: null, publishedAt: null,
