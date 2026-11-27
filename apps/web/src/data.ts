@@ -6,7 +6,7 @@ import {
   comparableRefs, fingerprints, listings, opportunities,
   pricePoints, purchases, valuations,
 } from '@brique/core/db/schema';
-import { aiStatsSince } from '@brique/core/db/repo/ai';
+import { aiStatsSince, countAiDeferred } from '@brique/core/db/repo/ai';
 import { listDealAlertsForListing } from '@brique/core/db/repo/alerts';
 import { getListing } from '@brique/core/db/repo/listings';
 import { listMonitors } from '@brique/core/db/repo/monitors';
@@ -210,6 +210,6 @@ export function getPnl(db: Db, tz: string, now = new Date(), settings = loadSett
   };
 }
 
-export function getSettingsView(db: Db) {
-  return { settings: loadSettings(db), config: getConfigStatus() };
+export function getSettingsView(db: Db, config: ConfigStatus = NO_CONFIG) {
+  return { settings: loadSettings(db), config, aiQueued: countAiDeferred(db) };
 }
