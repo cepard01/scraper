@@ -150,6 +150,56 @@ describe('extractProduct outras categorias', () => {
     expect(bomba.model).toBe('palio');
   });
 
+  it('peça específica não colide com o termo genérico', () => {
+    const agua = extractProduct('Bomba dágua Gol G5', '');
+    const gasolina = extractProduct('Bomba de gasolina Gol G5', '');
+    expect(agua.variant).toBe('bombaaguag5');
+    expect(gasolina.variant).toBe('bombagasolinag5');
+    expect(gasolina.variant).not.toBe(agua.variant);
+    expect(extractProduct('Bomba gasolina Gol G5', '').variant).toBe('bombagasolinag5');
+    expect(extractProduct('Farol de milha Gol G5', '').variant).toBe('farolmilhag5');
+    expect(extractProduct('Farol Gol G5', '').variant).toBe('farolg5');
+    expect(extractProduct('Coxim do motor Gol G5', '').variant).toBe('coximmotorg5');
+  });
+
+  it('dicionário de autopeça cobre distribuição, suspensão e escapamento', () => {
+    const cases: Array<[string, string]> = [
+      ['Correia dentada Gol G5', 'correiadistribuicaog5'],
+      ['Correia de distribuição Gol G5', 'correiadistribuicaog5'],
+      ['Kit distribuição Gol G5', 'kitdistribuicaog5'],
+      ['Tensor de correia Gol G5', 'tensorcorreiag5'],
+      ['Junta homocinética Gol G5', 'juntahomocineticag5'],
+      ['Pivô de suspensão Gol G5', 'pivosuspensaog5'],
+      ['Pivo suspensao Gol G5', 'pivosuspensaog5'],
+      ['Barra estabilizadora Gol G5', 'barraestabilizadorag5'],
+      ['Escapamento Gol G5', 'escapamentog5'],
+      ['Silenciador Gol G5', 'silenciadorg5'],
+      ['Catalisador Gol G5', 'catalisadorg5'],
+      ['Maçaneta Gol G5', 'macanetag5'],
+      ['Fechadura Gol G5', 'fechadurag5'],
+      ['Vidro para-brisa Gol G5', 'parabrisag5'],
+      ['Para-brisa Gol G5', 'parabrisag5'],
+      ['Bateria de carro Gol G5', 'bateriadecarrog5'],
+      ['Vela de ignição Gol G5', 'velaignicaog5'],
+      ['Vela ignição Gol G5', 'velaignicaog5'],
+      ['Termostato Gol G5', 'termostatog5'],
+      ['Eletroventilador Gol G5', 'eletroventiladorg5'],
+      ['Rolamento de roda Gol G5', 'rolamentoderodag5'],
+      ['Cubo de roda Gol G5', 'cuboderodag5'],
+      ['Pinça de freio Gol G5', 'pincadefreiog5'],
+      ['Airbag Gol G5', 'airbagg5'],
+      ['Reservatório de água Gol G5', 'reservatoriodeaguag5'],
+      ['Kit freio Gol G5', 'kitfreiog5'],
+      ['Diferencial Gol G5', 'diferencialg5'],
+      ['Sensor de temperatura Gol G5', 'sensordetemperaturag5'],
+      ['Sensor de rotação Gol G5', 'sensorderotacaog5'],
+    ];
+    for (const [title, variant] of cases) {
+      expect(extractProduct(title, '')).toMatchObject({ category: 'autopeca', matched: true });
+      expect(extractProduct(title, '').variant).toBe(variant);
+    }
+  });
+
   it('sensor de ABS é peça com geração na variante', () => {
     const g5 = extractProduct('Sensor de ABS Gol G5', '');
     const g6 = extractProduct('Sensor ABS Gol G6', '');

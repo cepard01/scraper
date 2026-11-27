@@ -27,6 +27,10 @@ describe('classifyCategory', () => {
   it('autopeca', () => {
     expect(classifyCategory('Farol Gol G5 original com lentes', '')).toBe('autopeca');
     expect(classifyCategory('Sensor de ABS Gol G5', '')).toBe('autopeca');
+    expect(classifyCategory('Correia dentada Gol G5', '')).toBe('autopeca');
+    expect(classifyCategory('Junta homocinética Gol G5', '')).toBe('autopeca');
+    expect(classifyCategory('Escapamento Gol G5', '')).toBe('autopeca');
+    expect(classifyCategory('Coxim do motor Gol G5', '')).toBe('autopeca');
   });
 
   it('outro quando nada casa', () => {
