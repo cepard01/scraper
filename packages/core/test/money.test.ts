@@ -41,6 +41,14 @@ describe('parsePriceBRL', () => {
     expect(parsePriceBRL('-R$ 100')).toEqual({ ok: false, reason: 'negativo' });
   });
 
+  it('normaliza NBSP e sinal tipográfico antes de classificar', () => {
+    expect(parsePriceBRL('Grátis\u00a0(vaga)')).toEqual({ ok: false, reason: 'gratuito' });
+    expect(parsePriceBRL('Grátis\u202f(vaga)')).toEqual({ ok: false, reason: 'gratuito' });
+    expect(parsePriceBRL('A\u00a0combinar')).toEqual({ ok: false, reason: 'a-combinar' });
+    expect(parsePriceBRL('−R$ 100')).toEqual({ ok: false, reason: 'negativo' });
+    expect(parsePriceBRL('R$\u00a0100,00')).toEqual({ ok: true, cents: 10_000 });
+  });
+
   it('recusa preco escrito com palavra de escala, que nao e decimal', () => {
     expect(parsePriceBRL('R$ 2 mil')).toEqual({ ok: false, reason: 'not-a-price' });
     expect(parsePriceBRL('1,5 mil')).toEqual({ ok: false, reason: 'not-a-price' });
