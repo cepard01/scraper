@@ -4,6 +4,7 @@ import {
   concatFlightChunks,
   extractFlightAds,
   looksLikeSearchResults,
+  parseOlxDetailPage,
   parseOlxPage,
   parseRscAds,
   rscAdToAd,
@@ -156,5 +157,28 @@ describe('adapter com RSC', () => {
 
   it('gera URL de busca com o formato validado', () => {
     expect(buildSearchUrl(monitor, 1)).toBe('https://www.olx.com.br/estado-rj?q=iphone+15&sf=1&o=1');
+  });
+});
+
+describe('parseOlxDetailPage', () => {
+  const jsonLd = (over: Record<string, unknown>): string =>
+    `<script type="application/ld+json">${JSON.stringify({
+      '@type': 'Product', identifier: '1', name: 'iPhone', url: 'https://x/1', ...over,
+    })}</script>`;
+
+  it('ponto de milhar em price nao vira preço 1000x menor', () => {
+    for (const price of ['4.300', '4.300,00', '4300']) {
+      const ad = parseOlxDetailPage(jsonLd({ offers: { price } }), '1');
+      expect(ad?.priceRaw).toBe(`R$ ${price}`);
+      expect(ad?.priceCents).toBe(430_000);
+    }
+  });
+
+  it('image como string ou ImageObject não derruba o parse', () => {
+    const stringImage = parseOlxDetailPage(jsonLd({ image: 'https://img/x.jpg', offers: { price: '4300' } }), '1');
+    expect(stringImage?.imageUrls).toContain('https://img/x.jpg');
+
+    const objectImage = parseOlxDetailPage(jsonLd({ image: { contentUrl: 'https://img/y.jpg' }, offers: { price: '4300' } }), '1');
+    expect(objectImage?.imageUrls).toContain('https://img/y.jpg');
   });
 });
