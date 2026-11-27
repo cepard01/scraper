@@ -49,6 +49,11 @@ describe('classifyCategory', () => {
     expect(classifyCategory('Capô Palio', '')).toBe('autopeca');
   });
 
+  it('nao classifica autopeca por substring dentro de outra palavra', () => {
+    expect(classifyCategory('Molas de colchão', '')).toBe('outro');
+    expect(classifyCategory('Mola de suspensão Gol G5', '')).toBe('autopeca');
+  });
+
   it('acessorio vetado cai em outro, nao em autopeca', () => {
     expect(classifyCategory('Controle PS4 Slim original', 'novo lacrado')).toBe('outro');
     expect(classifyCategory('Carregador notebook Dell 65w', 'original')).toBe('outro');

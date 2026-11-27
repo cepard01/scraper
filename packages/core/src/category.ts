@@ -105,7 +105,7 @@ export function classifyCategory(title: string, description: string): Category {
   let bestScore = 0;
   for (const [category, rule] of Object.entries(CATEGORY_RULES) as Array<[Category, Rule]>) {
     if (category === 'outro') continue;
-    const hits = rule.include.filter((x) => text.includes(x)).length;
+    const hits = rule.include.filter((x) => boundedIndex(text, x) >= 0).length;
     if (hits === 0) continue;
     const includeAt = firstMatch(text, rule.include);
     const excludeAt = firstMatch(text, rule.exclude);
@@ -119,21 +119,26 @@ export function classifyCategory(title: string, description: string): Category {
 function firstMatch(text: string, words: string[]): number {
   let idx = -1;
   for (const w of words) {
-    const i = text.indexOf(w);
+    const i = boundedIndex(text, w);
     if (i >= 0 && (idx === -1 || i < idx)) idx = i;
   }
   return idx;
+}
+
+function boundedIndex(text: string, word: string): number {
+  const at = wordRe(word).exec(text);
+  return at ? at.index : -1;
 }
 
 function escapeRe(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 }
 
-/** Alias casa como palavra: 'edge' não pode nascer de 'knowledge'. */
-function aliasRe(alias: string): RegExp {
-  const parts = alias.trim().split(/\s+/);
+/** Termo casa como palavra: 'edge' não nasce de 'knowledge', 'mola' não de 'molas'. */
+function wordRe(word: string): RegExp {
+  const parts = word.trim().split(/\s+/);
   const tail = parts[parts.length - 1]!;
-  // 'moto g32' e 'moto e20' são grafias válidas: um alias terminado em letra
+  // 'moto g32' e 'moto e20' são grafias válidas: um termo terminado em letra
   // única ainda pode continuar com dígito do modelo.
   const end = /^\p{L}$/u.test(tail) ? '(?![\\p{L}])' : '(?![\\p{L}\\p{N}])';
   const body = parts.map(escapeRe).join('\\s+');
@@ -143,7 +148,7 @@ function aliasRe(alias: string): RegExp {
 export function matchBrand(text: string, category: Category): string | null {
   const t = ` ${stripSymbols(normalizeCase(text))} `;
   for (const def of BRANDS_BY_CATEGORY[category] ?? []) {
-    if (def.aliases.some((a) => aliasRe(a).test(t))) return def.canonical;
+    if (def.aliases.some((a) => wordRe(a).test(t))) return def.canonical;
   }
   return null;
 }
