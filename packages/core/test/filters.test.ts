@@ -21,6 +21,15 @@ describe('passesRequireWords', () => {
     expect(normalizeTitle('  SÃO   Paulo ')).toBe('sao paulo');
   });
 
+  it('termo casa como palavra, não como pedaço de outro termo', () => {
+    expect(passesRequireWords('PS500 console', ['ps5'])).toBe(false);
+    expect(passesRequireWords('iPhone 150 Pro', ['iphone 15'])).toBe(false);
+    expect(passesRequireWords('Molas de colchão', ['mola'])).toBe(false);
+    expect(passesRequireWords('PS5 Slim', ['ps5'])).toBe(true);
+    expect(passesRequireWords('iPhone 15 Pro', ['iphone 15'])).toBe(true);
+    expect(passesRequireWords('Moto G32 64GB', ['moto g'])).toBe(true);
+  });
+
   it('termo vazio não autoriza tudo', () => {
     expect(passesRequireWords('PS4 Slim', ['', '   '])).toBe(false);
   });

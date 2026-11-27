@@ -1,5 +1,5 @@
 import type { Category } from './types';
-import { normalizeCase, stripSymbols } from './text';
+import { normalizeCase, stripSymbols, wordRe } from './text';
 
 interface Rule { include: string[]; exclude: string[]; weight: number }
 
@@ -134,21 +134,6 @@ function firstMatch(text: string, words: string[]): number {
 function boundedIndex(text: string, word: string): number {
   const at = wordRe(word).exec(text);
   return at ? at.index : -1;
-}
-
-function escapeRe(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
-}
-
-/** Termo casa como palavra: 'edge' não nasce de 'knowledge', 'mola' não de 'molas'. */
-function wordRe(word: string): RegExp {
-  const parts = word.trim().split(/\s+/);
-  const tail = parts[parts.length - 1]!;
-  // 'moto g32' e 'moto e20' são grafias válidas: um termo terminado em letra
-  // única ainda pode continuar com dígito do modelo.
-  const end = /^\p{L}$/u.test(tail) ? '(?![\\p{L}])' : '(?![\\p{L}\\p{N}])';
-  const body = parts.map(escapeRe).join('\\s+');
-  return new RegExp(`(?<![\\p{L}\\p{N}])${body}${end}`, 'u');
 }
 
 export function matchBrand(text: string, category: Category): string | null {
