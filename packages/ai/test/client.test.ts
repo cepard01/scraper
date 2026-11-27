@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { HttpPost, HttpResult } from '@brique/scrapers/http';
-import type { AiCallEntry, AiCachePort, AiLogPort } from '../src/ports';
+import type { TriageInput } from '@brique/core/ai-port';
+import type { AiCallEntry, AiCachePort, AiDeferredPort, AiLogPort } from '../src/ports';
 import { createAi, leanInput } from '../src/client';
 import { cacheKey, canonicalJson } from '../src/canonical';
 import { loadCombos } from '../src/combos';
@@ -41,6 +42,16 @@ function memoryPorts() {
     append: (entry) => { entries.push(entry); },
   };
   return { cache, log, store, entries };
+}
+
+function sharedDeferred() {
+  const store = new Map<number, TriageInput>();
+  const port: AiDeferredPort = {
+    list: () => [...store.values()],
+    push: (items) => { for (const i of items) store.set(i.listingId, i); },
+    remove: (ids) => { for (const id of ids) store.delete(id); },
+  };
+  return port;
 }
 
 const valid = (ids: number[], verdict = 'pass') => JSON.stringify({
@@ -158,6 +169,29 @@ describe('createAi.triage', () => {
     expect(ai.paused).toBe(true);
     expect(ai.queued).toBe(1);
     expect(ports.entries.filter((e) => e.status === 'budget')).toHaveLength(1);
+  });
+
+  it('fila injetada sobrevive a nova instância do cliente', async () => {
+    const ports = memoryPorts();
+    const deferred = sharedDeferred();
+    const firstPost = postFrom([result(200, valid([1]))]);
+    const first = createAi(base(firstPost.post, { ...ports, deferred, limits: { 'triage.batch': 1 } }));
+
+    await first.triage([item(1)]);
+    const blocked = await first.triage([item(2)]);
+
+    expect(blocked.get(2)?.reasons).toEqual(['ia-budget']);
+    expect(deferred.list().map((i) => i.listingId)).toEqual([2]);
+
+    const secondPost = postFrom([result(200, valid([2, 3]))]);
+    const second = createAi(base(secondPost.post, { ...ports, deferred, limits: { 'triage.batch': 2 } }));
+    const out = await second.triage([item(3)]);
+
+    expect(out.get(2)?.verdict).toBe('pass');
+    expect(out.get(3)?.verdict).toBe('pass');
+    expect(secondPost.calls).toHaveLength(1);
+    expect(deferred.list()).toEqual([]);
+    expect(second.queued).toBe(0);
   });
 
   it('três falhas abrem circuito por 15 min e o relógio injetado o fecha', async () => {
