@@ -85,6 +85,29 @@ describe('createNtfy', () => {
     expect(() => new Request('https://ntfy.invalid/', { method: 'POST', headers: captured!.headers })).not.toThrow();
   });
 
+  it('quebra de linha no título é codificada e não derruba o POST', async () => {
+    let captured: { headers: Record<string, string> } | null = null;
+    const post = async (_url: string, _body: string, init?: { headers?: Record<string, string> }) => {
+      captured = { headers: init?.headers ?? {} };
+      return { status: 200, text: '', json: <T>() => null as T };
+    };
+    const msg = {
+      title: 'iPhone 12\nR$ 900', body: 'x', tags: ['moneybag'], priority: 4, clickUrl: '',
+    };
+    const res = await createNtfy({ post, baseUrl: BASE, topic: TOPIC }).send(msg);
+    const title = captured!.headers.Title!;
+
+    expect(res.ok).toBe(true);
+    expect(title).toMatch(/^=\?UTF-8\?B\?/);
+    expect(Buffer.from(title.match(/B\?([^?]+)\?=/)![1]!, 'base64').toString('utf8')).toBe(msg.title);
+    expect(() => new Request('https://ntfy.invalid/', { method: 'POST', headers: captured!.headers })).not.toThrow();
+  });
+
+  it('codifica controles C0/DEL, mas deixa tab e latin-1 legíveis', () => {
+    expect(encodeHeaderValue('a\nb\r\u0000\u001f\u007f')).toMatch(/^=\?UTF-8\?B\?/);
+    expect(encodeHeaderValue('a\tb café')).toBe('a\tb café');
+  });
+
   it('erro do transporte vira ok:false, sem lancar', async () => {
     const post = vi.fn(async () => ({ status: 0, text: '', error: 'timeout' as const, json: <T>() => null as T }));
     const port = createNtfy({ post, baseUrl: BASE, topic: TOPIC });
