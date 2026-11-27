@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { integer, text, real, sqliteTable, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
-import type { AlertAction, Category, Confidence, Cents, GateReason, Grade, ListingStatus, MonitorParams, PurchaseStatus, SourceId, Valuation } from '../types';
+import type { AiTask, AlertAction, Category, Confidence, Cents, GateReason, Grade, ListingStatus, MonitorParams, PurchaseStatus, SourceId, Valuation } from '../types';
 
 const ts = (name: string) => integer(name, { mode: 'timestamp_ms' });
 
@@ -129,9 +129,34 @@ export const runs = sqliteTable('run', {
   rejected: text('rejected', { mode: 'json' }).$type<Record<string, number>>().notNull().default(sql`'{}'`),
   unmatched: integer('unmatched').notNull().default(0),
   aiCalls: integer('ai_calls').notNull().default(0),
+  aiCacheHits: integer('ai_cache_hits').notNull().default(0),
   alerts: integer('alerts').notNull().default(0),
   error: text('error'),
 });
+
+// Cache de IA por sha256(task + combo + input canônico). Um anúncio inalterado
+// não pode ser cobrado de novo: a chave é gravada junto com o resultado.
+export const aiCache = sqliteTable('ai_cache', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  key: text('key').notNull(),
+  task: text('task').$type<AiTask>().notNull(),
+  combo: text('combo').notNull(),
+  result: text('result', { mode: 'json' }).notNull(),
+  createdAt: ts('created_at').notNull(),
+}, (t) => [uniqueIndex('u_ai_cache_key').on(t.key), index('i_ai_cache_task').on(t.task, t.createdAt)]);
+
+// Registro honesto de cada tentativa: ok, unparsed, budget, circuit, failed.
+// É a fonte do painel e do critério §16.2 (zero chamada em item já visto).
+export const aiCallLog = sqliteTable('ai_call_log', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  task: text('task').$type<AiTask>().notNull(),
+  status: text('status').$type<'ok' | 'unparsed' | 'budget' | 'circuit' | 'failed' | 'cache-hit'>().notNull(),
+  attempts: integer('attempts').notNull().default(0),
+  batchSize: integer('batch_size').notNull().default(0),
+  cacheKey: text('cache_key'),
+  error: text('error'),
+  createdAt: ts('created_at').notNull(),
+}, (t) => [index('i_ai_call_task_time').on(t.task, t.createdAt)]);
 
 export const dealAlerts = sqliteTable('deal_alert', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -145,6 +170,7 @@ export const dealAlerts = sqliteTable('deal_alert', {
   ackAt: ts('ack_at'),
   action: text('action').$type<AlertAction>(),
   snoozeUntil: ts('snooze_until'),
+  flags: text('flags', { mode: 'json' }).$type<string[]>().notNull().default(sql`'[]'`),
   createdAt: ts('created_at').notNull(),
 }, (t) => [
   index('i_alert_listing').on(t.listingId, t.createdAt),

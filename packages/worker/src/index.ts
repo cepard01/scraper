@@ -1,6 +1,5 @@
 import { loadConfig } from '@brique/core/config';
 import { openDb, migrateDb, loadSettings, seedSettings, DEFAULT_SETTINGS } from '@brique/core/db/client-helpers';
-import { nullAiPort } from '@brique/core/ai-port';
 import { localAskingProvider } from '@brique/core/valuation/comparables';
 import { startScheduler, type SchedulerDeps } from '@brique/core/scheduler';
 import { listDue } from '@brique/core/db/repo/monitors';
@@ -12,6 +11,7 @@ import type { SourceId } from '@brique/core/types';
 import { createHttp, createHttpPost } from '@brique/scrapers/http';
 import { createOlxAdapter } from '@brique/scrapers/olx/adapter';
 import { createMeliAdapter } from '@brique/scrapers/meli/adapter';
+import { createWorkerAi } from './ai';
 import { printShortlist } from './cli';
 import { createNtfy, formatDigest } from './notify-ntfy';
 import { notifyDegradedSources } from './monitoring';
@@ -45,12 +45,14 @@ const notify = notifierOn
   ? createNtfy({ post, baseUrl: cfg.ntfy.baseUrl, topic: cfg.ntfy.topic })
   : nullNotifier();
 
+const { ai, configured: aiOn } = createWorkerAi({ db, settings, post, omniRoute: cfg.omniRoute });
+
 const deps: SchedulerDeps = {
-  db, settings, adapters, ai: nullAiPort(), comparables: localAskingProvider,
+  db, settings, adapters, ai, comparables: localAskingProvider,
   notify, alertChannel: notifierOn ? 'ntfy' : undefined, tz: cfg.tz, now: () => new Date(),
 };
 
-console.log(`worker ok · sqlite=${cfg.sqlitePath} · fontes=${Object.keys(adapters).join(', ')} · notifier=${notifierOn ? 'ntfy' : 'off'}`);
+console.log(`worker ok · sqlite=${cfg.sqlitePath} · fontes=${Object.keys(adapters).join(', ')} · notifier=${notifierOn ? 'ntfy' : 'off'} · ai=${aiOn ? 'omniroute' : 'off'}`);
 console.log(`monitores due agora: ${listDue(db, new Date()).length}`);
 
 const checkHealthAfterPass = async (): Promise<void> => {

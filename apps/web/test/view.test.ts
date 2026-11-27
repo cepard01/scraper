@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { alertText, breakdownText, healthText, money, notice, pct, verdictText } from '../src/view';
+import { aiKpiText, alertText, breakdownText, healthText, money, notice, pct, verdictText } from '../src/view';
 import { parseSettingsForm } from '../src/settings-form';
 
 describe('formatadores das rotas', () => {
@@ -24,6 +24,13 @@ describe('formatadores das rotas', () => {
     expect(alertText(null, null)).toBe('sem alerta');
     expect(healthText({ source: 'olx', degraded: true, detail: 'zero novos' }))
       .toBe('olx: degradado — zero novos');
+  });
+
+  it('KPI de IA não inventa 0% sem dados nem finge gateway desligado', () => {
+    expect(aiKpiText({ configured: false, cacheHitPct: 0.5 })).toBe('IA desligada');
+    expect(aiKpiText({ configured: true, cacheHitPct: null })).toBe('n/d');
+    expect(aiKpiText({ configured: true, cacheHitPct: 0 })).toBe('0%');
+    expect(aiKpiText({ configured: true, cacheHitPct: 0.25 })).toBe('25%');
   });
 
   it('notice prioriza erro e aceita valor único ou array do Router', () => {

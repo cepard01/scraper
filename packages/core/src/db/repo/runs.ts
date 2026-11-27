@@ -11,6 +11,8 @@ export interface RunSummary {
   rejected: Record<string, number>;
   unmatched: number;
   aiCalls: number;
+  /** Itens respondidos pelo cache de IA nesta passada. */
+  aiCacheHits?: number;
   /** Entregas efetivas nesta passada, persistidas em run.alerts. */
   alerts: number;
   error?: string;
@@ -25,6 +27,7 @@ export function finishRun(db: Db, runId: number, at: Date, s: RunSummary): void 
   db.update(runs).set({
     finishedAt: at, outcome: s.outcome, fetched: s.fetched, created: s.created,
     repriced: s.repriced, unchanged: s.unchanged, rejected: s.rejected,
-    unmatched: s.unmatched, aiCalls: s.aiCalls, alerts: s.alerts, error: s.error ?? null,
+    unmatched: s.unmatched, aiCalls: s.aiCalls, aiCacheHits: s.aiCacheHits ?? 0,
+    alerts: s.alerts, error: s.error ?? null,
   }).where(eq(runs.id, runId)).run();
 }

@@ -33,6 +33,13 @@ export function verdictText(verdict: 'pass' | 'veto' | 'unavailable' | null, rea
   return reasons.length > 0 ? `${label}: ${reasons.join('; ')}` : label;
 }
 
+// Sem gateway ou sem chamadas registradas não existe taxa para mostrar: n/d,
+// nunca 0% — um zero inventado acusaria o cache de estar quebrado.
+export function aiKpiText(ai: { configured: boolean; cacheHitPct: number | null }): string {
+  if (!ai.configured) return 'IA desligada';
+  return ai.cacheHitPct === null ? 'n/d' : pct(ai.cacheHitPct);
+}
+
 export function alertText(status: AlertStatus | null, reason: string | null): string {
   if (status === null) return 'sem alerta';
   const label = { pending: 'pendente', sent: 'entregue', failed: 'falhou', suppressed: 'suprimido' }[status];
