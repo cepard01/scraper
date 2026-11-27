@@ -14,6 +14,11 @@ const REJECT_PREFIX: Array<[string, PriceReject]> = [
 
 const DEFAULT_MAX_CENTS = 200_000_000;
 
+// O sinal também aparece depois do símbolo ("R$ -100") ou grudado no fim do valor
+// ("100 -"). A extração de dígitos descarta o '-', então sem esta guarda os dois
+// casos viravam um preço positivo.
+const NEGATIVE_SIGN = /-\s*(?:r\$|[\d.,])|[\d.,]\s*-\s*$/;
+
 // "R$ 2 mil" e "1,5 mil" virariam R$ 2,00 e R$ 1,50 sem esta guarda: um erro de 1000x silencioso
 const WORD_MULTIPLIER = /\b(mil|milhao|milhoes|kk)\b/;
 
@@ -33,7 +38,7 @@ export function parsePriceBRL(input: string, opts: { maxCents?: Cents } = {}): P
   for (const [word, reason] of REJECT_PREFIX) {
     if (lowered === word || lowered.startsWith(`${word} `)) return { ok: false, reason };
   }
-  if (lowered.startsWith('-') || /\bmenos\b/.test(lowered)) return { ok: false, reason: 'negativo' };
+  if (lowered.startsWith('-') || NEGATIVE_SIGN.test(lowered) || /\bmenos\b/.test(lowered)) return { ok: false, reason: 'negativo' };
   if (WORD_MULTIPLIER.test(lowered)) return { ok: false, reason: 'not-a-price' };
 
   const digitsOnly = lowered
