@@ -46,6 +46,12 @@ describe('parsePriceBRL', () => {
     expect(parsePriceBRL('Grátis\u202f(vaga)')).toEqual({ ok: false, reason: 'gratuito' });
     expect(parsePriceBRL('A\u00a0combinar')).toEqual({ ok: false, reason: 'a-combinar' });
     expect(parsePriceBRL('−R$ 100')).toEqual({ ok: false, reason: 'negativo' });
+    expect(parsePriceBRL('R$ -100')).toEqual({ ok: false, reason: 'negativo' });
+    expect(parsePriceBRL('R$ −100')).toEqual({ ok: false, reason: 'negativo' });
+    expect(parsePriceBRL('R$-1.000,00')).toEqual({ ok: false, reason: 'negativo' });
+    expect(parsePriceBRL('R$ - 100')).toEqual({ ok: false, reason: 'negativo' });
+    expect(parsePriceBRL('100 -')).toEqual({ ok: false, reason: 'negativo' });
+    expect(parsePriceBRL('1.000,00-')).toEqual({ ok: false, reason: 'negativo' });
     expect(parsePriceBRL('R$\u00a0100,00')).toEqual({ ok: true, cents: 10_000 });
   });
 
@@ -58,6 +64,7 @@ describe('parsePriceBRL', () => {
   it('ignora anotacao de pagamento no campo de preco', () => {
     expect(parsePriceBRL('R$ 980 (aceito pix)')).toEqual({ ok: true, cents: 98_000 });
     expect(parsePriceBRL('980,00 a vista')).toEqual({ ok: true, cents: 98_000 });
+    expect(parsePriceBRL('R$ 100 - usado')).toEqual({ ok: true, cents: 10_000 });
   });
 
   it('rejeita acima do teto configurável', () => {
