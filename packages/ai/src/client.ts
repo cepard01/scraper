@@ -1,6 +1,6 @@
 import type { AiTask } from '@brique/core/types';
 import type { AiTriagePort, TriageInput, TriageVerdict } from '@brique/core/ai-port';
-import type { AiCachePort, AiLogPort, AiOptions, AiState } from './ports';
+import type { AiCachePort, AiDeferredPort, AiLogPort, AiOptions, AiState } from './ports';
 import { cacheKey } from './canonical';
 import { loadCombos, type Combos } from './combos';
 import { parseVerdicts, regexVerdicts, REPAIR_INSTRUCTION, type ParsedVerdicts } from './parse';
@@ -21,6 +21,23 @@ const SYSTEM = {
 } as const;
 
 const unavailable = (reasons: string[] = []): TriageVerdict => ({ verdict: 'unavailable', reasons });
+
+/** Porta padrão: mantém o comportamento antigo quando o chamador não injeta a fila SQLite. */
+function memoryDeferred(): AiDeferredPort {
+  let items: TriageInput[] = [];
+  return {
+    list: () => [...items],
+    push: (next) => {
+      const byId = new Map(items.map((i) => [i.listingId, i]));
+      for (const item of next) byId.set(item.listingId, item);
+      items = [...byId.values()];
+    },
+    remove: (ids) => {
+      const gone = new Set(ids);
+      items = items.filter((i) => !gone.has(i.listingId));
+    },
+  };
+}
 
 function validVerdict(value: unknown): value is TriageVerdict {
   if (typeof value !== 'object' || value === null) return false;
@@ -76,7 +93,7 @@ export function createAi(opts: AiOptions): AiClient {
 
   const failures: Partial<Record<AiTask, number>> = {};
   const circuitOpenUntil: Partial<Record<AiTask, number>> = {};
-  let deferred: TriageInput[] = [];
+  const deferred: AiDeferredPort = opts.deferred ?? memoryDeferred();
   let calls = 0;
   let cacheHits = 0;
   let paused = false;
@@ -88,7 +105,7 @@ export function createAi(opts: AiOptions): AiClient {
   }
 
   function state(): AiState {
-    return { calls, cacheHits, paused, queued: deferred.length, circuitOpenUntil: { ...circuitOpenUntil } };
+    return { calls, cacheHits, paused, queued: deferred.list().length, circuitOpenUntil: { ...circuitOpenUntil } };
   }
 
   function syncState(): void {
@@ -226,23 +243,31 @@ export function createAi(opts: AiOptions): AiClient {
     get calls() { return calls; },
     get cacheHits() { return cacheHits; },
     get paused() { return paused; },
-    get queued() { return deferred.length; },
+    get queued() { return deferred.list().length; },
     state,
     remaining,
     async triage(items: TriageInput[]): Promise<Map<number, TriageVerdict>> {
       if (items.length === 0) return new Map();
-      const queue = [...deferred, ...items];
-      deferred = [];
+
+      // Itens vindos da fila e itens novos com o mesmo listingId são a mesma
+      // observação: a versão nova (do passo atual) ganha.
+      const merged = new Map<number, TriageInput>();
+      for (const pending of deferred.list()) merged.set(pending.listingId, pending);
+      for (const item of items) merged.set(item.listingId, item);
+      const queue = [...merged.values()];
 
       const out = new Map<number, TriageVerdict>();
       const misses: TriageInput[] = [];
       const keys = new Map<number, string>();
+      const resolved: number[] = [];
+      const blocked: TriageInput[] = [];
       for (const item of queue) {
         const key = cacheKey('triage.batch', combo.name, leanInput(item));
         keys.set(item.listingId, key);
         const cached = cache?.get(key);
         if (validVerdict(cached)) {
           out.set(item.listingId, cached);
+          resolved.push(item.listingId);
           cacheHits++;
           log?.append({
             task: 'triage.batch', status: 'cache-hit', attempts: 0, batchSize: 1,
@@ -263,20 +288,26 @@ export function createAi(opts: AiOptions): AiClient {
             // Veredito explícito do modelo (inclusive unavailable com motivos)
             // é preservado; só caches de opinião real para não cobrar de novo.
             out.set(item.listingId, verdict);
+            resolved.push(item.listingId);
             if (verdict.verdict !== 'unavailable') {
               cache?.set(keys.get(item.listingId)!, verdict, {
                 task: 'triage.batch', combo: combo.name, createdAt: opts.clock(),
               });
             }
           } else if (answer.kind === 'blocked') {
-            deferred.push(item);
+            blocked.push(item);
             out.set(item.listingId, unavailable([`ia-${answer.reason}`]));
           } else {
+            resolved.push(item.listingId);
             out.set(item.listingId, unavailable(['ia-sem-opiniao']));
           }
         }
       }
 
+      // Remove só o que foi respondido e reenfileira o que ficou sem janela.
+      // Um crash entre as duas operações no máximo repete uma consulta já paga.
+      deferred.remove([...new Set(resolved)]);
+      deferred.push(blocked);
       syncState();
       for (const item of items) if (!out.has(item.listingId)) out.set(item.listingId, unavailable());
       return out;

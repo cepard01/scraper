@@ -23,7 +23,9 @@ export async function main(argv: string[] = process.argv): Promise<void> {
     return;
   }
 
-  const { db } = openDb(cfg.sqlitePath);
+  // Banco descartável: o smoke é uma medição, não pode gravar cache, log ou
+  // fila postergada no banco de produção do operador.
+  const { db } = openDb(':memory:');
   migrateDb(db);
   seedSettings(db, DEFAULT_SETTINGS);
   const settings = loadSettings(db);
@@ -44,7 +46,7 @@ export async function main(argv: string[] = process.argv): Promise<void> {
   console.log(`título: ${title}`);
   console.log(`veredito: ${verdict?.verdict ?? 'sem-resposta'}`);
   if (verdict?.reasons.length) console.log(`motivos: ${verdict.reasons.join('; ')}`);
-  console.log(`chamadas=${calls} cache-hits=${hits} pausado=${(ai as { paused?: boolean }).paused ?? 'n/d'}`);
+  console.log(`chamadas=${calls} cache-hits=${hits} fila=${(ai as { queued?: number }).queued ?? 0} pausado=${(ai as { paused?: boolean }).paused ?? 'n/d'}`);
 
   if (verdict?.verdict !== 'pass' && verdict?.verdict !== 'veto') {
     console.error('sem opinião do gateway verifique orçamento, circuito e resposta JSON.');

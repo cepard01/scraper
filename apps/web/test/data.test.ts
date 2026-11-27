@@ -6,13 +6,14 @@ import { getOrCreateFingerprint } from '@brique/core/db/repo/fingerprints';
 import { upsertFromSource } from '@brique/core/db/repo/listings';
 import { insertOpportunity } from '@brique/core/db/repo/opportunities';
 import { insertDealAlert } from '@brique/core/db/repo/alerts';
+import { pushAiDeferred } from '@brique/core/db/repo/ai';
 import { createMonitor } from '@brique/core/db/repo/monitors';
 import { insertPurchase, recordSale } from '@brique/core/db/repo/giro';
 import {
   aiCallLog, comparableRefs, opportunities, pricePoints, runs, valuations,
 } from '@brique/core/db/schema';
 import type { ListingInput } from '@brique/core/types';
-import { getDeals, getHome, getInventory, getListingDetail, getPnl } from '../src/data';
+import { getDeals, getHome, getInventory, getListingDetail, getPnl, getSettingsView } from '../src/data';
 
 const T0 = new Date('2026-10-01T12:00:00Z');
 const T1 = new Date('2026-10-10T12:00:00Z');
@@ -132,6 +133,17 @@ describe('queries das rotas', () => {
       ntfyConfigured: true, meliConfigured: false, omnirouteConfigured: true,
     });
     expect(on.ai).toMatchObject({ configured: true, cacheHitPct: 0.5, calls: 1, paused: true });
+  });
+
+  it('/settings conta a fila postergada sem depender de .env', () => {
+    seedSettings(db, DEFAULT_SETTINGS);
+    expect(getSettingsView(db).aiQueued).toBe(0);
+
+    pushAiDeferred(db, [{
+      listingId: 42, externalId: 'EXT-42', title: 'iPhone postergado', askingCents: 250_000,
+    }]);
+
+    expect(getSettingsView(db).aiQueued).toBe(1);
   });
 
   it('/inventory e /pnl herdam stale e itens realizados do core', () => {

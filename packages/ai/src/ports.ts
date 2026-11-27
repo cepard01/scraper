@@ -1,4 +1,5 @@
 import type { AiTask } from '@brique/core/types';
+import type { TriageInput } from '@brique/core/ai-port';
 import type { HttpPost } from '@brique/scrapers/http';
 import type { Combos } from './combos';
 
@@ -23,6 +24,13 @@ export interface AiLogPort {
   append(entry: AiCallEntry): void;
 }
 
+/** Fila de itens postergados por cota/circuito; um listingId, uma entrada. */
+export interface AiDeferredPort {
+  list(): TriageInput[];
+  push(items: TriageInput[]): void;
+  remove(listingIds: number[]): void;
+}
+
 export interface AiState {
   calls: number;
   cacheHits: number;
@@ -39,6 +47,8 @@ export interface AiOptions {
   limits?: Partial<Record<AiTask, number>>;
   cache?: AiCachePort;
   log?: AiLogPort;
+  /** Ausente => fila em memória; o worker injeta a versão SQLite. */
+  deferred?: AiDeferredPort;
   combos?: Combos;
   sleep?: (ms: number) => Promise<void>;
   maxAttempts?: number;

@@ -1,4 +1,4 @@
-import { getSettingsView } from '../../data';
+import { getConfigStatus, getSettingsView } from '../../data';
 import { webDb } from '../../db';
 import { setSettingsAction } from '../../actions';
 import { notice } from '../../view';
@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 type Search = { error?: string | string[]; ok?: string | string[] };
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<Search> }) {
-  const { settings: s, config } = getSettingsView(webDb());
+  const { settings: s, config, aiQueued } = getSettingsView(webDb(), getConfigStatus());
   const msg = notice(await searchParams);
 
   return (
@@ -55,6 +55,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       <table>
         <tbody>
           <tr><th>Estado</th><td>{!config.omnirouteConfigured ? 'desligada (sem chave)' : s.aiPaused ? 'pausada por orçamento/circuito' : 'ativa'}</td></tr>
+          <tr><th>Fila postergada</th><td>{aiQueued} item(ns) aguardando janela</td></tr>
           {Object.entries(s.aiDailyLimits).map(([task, limit]) => (
             <tr key={task}><th>{task}</th><td>{limit} requisição(ões)/dia</td></tr>
           ))}

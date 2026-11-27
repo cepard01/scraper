@@ -1,11 +1,12 @@
 import type { Db } from '@brique/core/db/client';
 import {
-  countAiCalls, getAiCache, insertAiCall, putAiCache,
+  countAiCalls, getAiCache, insertAiCall, listAiDeferred,
+  pushAiDeferred, putAiCache, removeAiDeferred,
 } from '@brique/core/db/repo/ai';
-import type { AiCachePort, AiLogPort } from './ports';
+import type { AiCachePort, AiDeferredPort, AiLogPort } from './ports';
 
-/** Liga o cliente ao SQLite do Brique: cache e log são do core, não da rede. */
-export function dbAiPorts(db: Db): { cache: AiCachePort; log: AiLogPort } {
+/** Liga o cliente ao SQLite do Brique: cache, fila e log são do core, não da rede. */
+export function dbAiPorts(db: Db): { cache: AiCachePort; log: AiLogPort; deferred: AiDeferredPort } {
   return {
     cache: {
       get: (key) => getAiCache(db, key),
@@ -16,6 +17,11 @@ export function dbAiPorts(db: Db): { cache: AiCachePort; log: AiLogPort } {
     log: {
       count: (task, from, to) => countAiCalls(db, task, from, to),
       append: (entry) => insertAiCall(db, entry),
+    },
+    deferred: {
+      list: () => listAiDeferred(db),
+      push: (items) => pushAiDeferred(db, items),
+      remove: (ids) => removeAiDeferred(db, ids),
     },
   };
 }
