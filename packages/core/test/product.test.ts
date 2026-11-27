@@ -75,6 +75,16 @@ describe('extractProduct celular', () => {
     expect(extractProduct('Galaxy S24+ 256GB', '').model).toBe('galaxy s24 plus');
   });
 
+  it('plus colado na rede não colide com o modelo base', () => {
+    const plus = extractProduct('Redmi Note 13 Pro+5G 256GB', '');
+    const pro = extractProduct('Redmi Note 13 Pro 5G 256GB', '');
+    expect(plus.model).toBe('redmi note 13 pro plus');
+    expect(plus.model).not.toBe(pro.model);
+    expect(plus.variant).toBe('256gb-5g');
+    expect(extractProduct('Galaxy S24+5G 256GB', '').model).toBe('galaxy s24 plus');
+    expect(extractProduct('iPhone 14 + 128GB', '').model).toBe('iphone 14');
+  });
+
   it('família solta sem número não vira modelo', () => {
     const semNumero = extractProduct('iPhone 128GB', '');
     expect(semNumero.model).toBeNull();
@@ -138,6 +148,14 @@ describe('extractProduct outras categorias', () => {
     expect(g6.variant).toBe('farolg6');
     expect(g5.variant).not.toBe(bomba.variant);
     expect(bomba.model).toBe('palio');
+  });
+
+  it('sensor de ABS é peça com geração na variante', () => {
+    const g5 = extractProduct('Sensor de ABS Gol G5', '');
+    const g6 = extractProduct('Sensor ABS Gol G6', '');
+    expect(g5).toMatchObject({ category: 'autopeca', brand: 'gm', model: 'gol', matched: true });
+    expect(g5.variant).toBe('sensorabsg5');
+    expect(g6.variant).toBe('sensorabsg6');
   });
 
   it('notebook separa por série, cpu e ram', () => {

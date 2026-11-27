@@ -27,9 +27,12 @@ const NETWORK_RE = /(?<![\p{L}\p{N}])([45]g)(?![\p{L}\p{N}])/u;
 const LACRADO_RE = /\blacrad[ao]s?\b/;
 
 function view(text: string): string {
+  // `Pro+5G`/`S24+5G`: o sinal é sufixo de modelo mesmo colado na rede. Sem esta
+  // passada, `cleanTitle` troca o `+` por espaço e o plus desaparece do modelo.
+  const networked = text.replace(/([\p{L}\p{N}])\+(?=[45]g(?![\p{L}\p{N}]))/giu, '$1 plus ');
   // R52/R61: só o `+` colado em letra ou dígito é sufixo de modelo (`S24+`, `Pro+`). `14 + 128GB` é pacote:
   // sem `\s*` no regex, o sinal separado vira símbolo e `cleanTitle` o apaga — destino correto.
-  const spelled = text.replace(/([\p{L}\p{N}])\+(?![\p{L}\p{N}])/gu, '$1 plus');
+  const spelled = networked.replace(/([\p{L}\p{N}])\+(?![\p{L}\p{N}])/gu, '$1 plus');
   return ` ${cleanTitle(spelled).replace(/(\d)[\s]+(gb|ssd|hdd|tb|ram)/g, '$1$2')} `;
 }
 
@@ -88,6 +91,10 @@ function storageSlug(t: string): string | null {
   return best ? `${best.n}${best.unit}` : null;
 }
 
+const AUTO_PART_ALIASES: Record<string, string> = {
+  'sensor de abs': 'sensor abs',
+};
+
 const AUTO_PARTS = CATEGORY_RULES.autopeca.include
   .filter((w) => w !== 'peca')
   .map((w) => w.trim())
@@ -100,7 +107,8 @@ function autoPartSlug(t: string): string | null {
   const part = t.match(AUTO_PART_RE)?.[0];
   if (!part) return null;
   const gen = t.match(/(?<![\p{L}\p{N}])g(\d)(?![\p{L}\p{N}])/u)?.[0] ?? '';
-  return part.replace(/\s+/g, '') + gen;
+  const canonical = AUTO_PART_ALIASES[part] ?? part;
+  return canonical.replace(/\s+/g, '') + gen;
 }
 
 // R53: componente de rede do celular — presente só quando o anúncio o declara;
