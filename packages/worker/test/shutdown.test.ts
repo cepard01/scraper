@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { makeStop } from '../src/shutdown';
+import { createBackgroundTracker, makeStop } from '../src/shutdown';
 
 describe('makeStop', () => {
-  it('espera digest e passada antes de fechar o banco e sair', async () => {
+  it('espera trabalho de fundo e passada antes de fechar o banco e sair', async () => {
     const events: string[] = [];
     let release!: () => void;
     const pass = new Promise<void>((r) => { release = r; });
@@ -14,7 +14,7 @@ describe('makeStop', () => {
           events.push('scheduler:end');
         },
       },
-      stopDigest: async () => { events.push('digest'); },
+      drainBackground: async () => { events.push('background'); },
       close: () => events.push('sqlite'),
       log: (text) => events.push(text),
       exit: (code) => events.push(`exit:${code}`),
@@ -22,13 +22,13 @@ describe('makeStop', () => {
 
     const done = stop('SIGTERM');
     await Promise.resolve();
-    expect(events).toEqual(['digest', 'scheduler:start']);
+    expect(events).toEqual(['background', 'scheduler:start']);
 
     release();
     await done;
 
     expect(events).toEqual([
-      'digest', 'scheduler:start', 'scheduler:end', 'sqlite', 'parado (SIGTERM).', 'exit:0',
+      'background', 'scheduler:start', 'scheduler:end', 'sqlite', 'parado (SIGTERM).', 'exit:0',
     ]);
   });
 
@@ -36,7 +36,7 @@ describe('makeStop', () => {
     let exits = 0;
     const stop = makeStop({
       handle: { stop: async () => {} },
-      stopDigest: () => {},
+      drainBackground: () => {},
       exit: () => { exits++; },
     });
 
@@ -46,5 +46,26 @@ describe('makeStop', () => {
     expect(second).toBe(first);
     await first;
     expect(exits).toBe(1);
+  });
+});
+
+describe('createBackgroundTracker', () => {
+  it('drena tudo que estava em voo e ignora falhas já tratadas', async () => {
+    const tracker = createBackgroundTracker();
+    let release!: () => void;
+    const slow = new Promise<void>((r) => { release = r; });
+    tracker.track(slow);
+    tracker.track(Promise.reject(new Error('ja logado')));
+
+    let drained = false;
+    const waiting = tracker.drain().then(() => { drained = true; });
+    await Promise.resolve();
+    expect(drained).toBe(false);
+
+    release();
+    await waiting;
+    expect(drained).toBe(true);
+
+    await expect(tracker.drain()).resolves.toBeUndefined();
   });
 });

@@ -15,7 +15,7 @@ import { createWorkerAi } from './ai';
 import { printShortlist } from './cli';
 import { createNtfy, formatDigest } from './notify-ntfy';
 import { notifyDegradedSources } from './monitoring';
-import { makeStop } from './shutdown';
+import { createBackgroundTracker, makeStop } from './shutdown';
 
 try { process.loadEnvFile(); } catch { /* em VPS o EnvironmentFile do systemd já trouxe tudo */ }
 
@@ -56,6 +56,7 @@ const deps: SchedulerDeps = {
 console.log(`worker ok · sqlite=${cfg.sqlitePath} · fontes=${Object.keys(adapters).join(', ')} · notifier=${notifierOn ? 'ntfy' : 'off'} · ai=${aiOn ? 'omniroute' : 'off'}`);
 console.log(`monitores due agora: ${listDue(db, new Date()).length}`);
 
+const background = createBackgroundTracker();
 const checkHealthAfterPass = async (): Promise<void> => {
   if (!notifierOn) return;
   const sent = await notifyDegradedSources({
@@ -69,38 +70,33 @@ const handle = startScheduler(deps, 60_000, (summaries) => {
   const alertas = summaries.reduce((n, s) => n + s.alerts, 0);
   // Zero novos é exatamente o caso que o health precisa ver: não pode ficar
   // atrás do early-return de "nada aconteceu".
-  void checkHealthAfterPass().catch(() => console.log('health: verificacao falhou'));
+  background.track(checkHealthAfterPass().catch(() => console.log('health: verificacao falhou')));
   if (avaliados === 0 && alertas === 0) return;
   console.log(`ciclo: novos/reprecificados=${avaliados} alertas=${alertas}`);
   if (avaliados > 0) console.log(printShortlist(listShortlistedRanked(db, 10)));
 });
 
-let digestInFlight: Promise<void> | null = null;
 const checkDigest = (): void => {
   if (!notifierOn) return;
-  const work = runDigest({ db, notify, now: () => new Date(), tz: cfg.tz, format: formatDigest })
+  background.track(runDigest({ db, notify, now: () => new Date(), tz: cfg.tz, format: formatDigest })
     .then((outcome) => {
       if (outcome.sent) console.log(`digest: ${outcome.rows} itens`);
       else if (outcome.reason === 'sem-itens') console.log('digest: shortlist vazio');
     })
-    .catch(() => console.log('digest: verificacao falhou'))
-    .finally(() => { if (digestInFlight === work) digestInFlight = null; });
-  digestInFlight = work;
-  void work;
+    .catch(() => console.log('digest: verificacao falhou')));
 };
-let stopDigest = async (): Promise<void> => {};
+let digestTimer: ReturnType<typeof setInterval> | null = null;
 if (notifierOn) {
   checkDigest();
-  const digestTimer = setInterval(checkDigest, 60_000);
-  stopDigest = async () => {
-    clearInterval(digestTimer);
-    await digestInFlight;
-  };
+  digestTimer = setInterval(checkDigest, 60_000);
 }
 
 const stop = makeStop({
   handle,
-  stopDigest,
+  drainBackground: async () => {
+    if (digestTimer) clearInterval(digestTimer);
+    await background.drain();
+  },
   close: () => sqlite.close(),
   log: (text) => console.log(text),
   exit: (code) => process.exit(code),
