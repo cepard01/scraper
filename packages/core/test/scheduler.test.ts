@@ -98,10 +98,42 @@ describe('startScheduler', () => {
     expect(buscas).toBe(1);
     expect(passadas).toEqual([]);
 
-    handle.stop();
+    const parando = handle.stop();
     await vi.advanceTimersByTimeAsync(10_000);
+    await parando;
     expect(passadas).toEqual([1]);
     expect(buscas).toBe(1);
+    expect(nRuns()).toBe(1);
+    vi.useRealTimers();
+  });
+
+  it('stop aguarda a passada em voo e pode ser chamado mais de uma vez', async () => {
+    let terminou = false;
+    const lenta: SourceAdapter = {
+      id: 'olx',
+      parserVersion: 'olx-1',
+      async health() { return { ok: true }; },
+      async search() { await new Promise<void>((r) => setTimeout(r, 1_000)); terminou = true; return []; },
+      async fetchOne() { throw new Error('nao usado'); },
+      toListingInput() { throw new Error('nao usado'); },
+    };
+    createMonitor(db, { label: 'o', source: 'olx', query: 'o', category: null, params: {}, intervalMinutes: 30 });
+
+    vi.useFakeTimers();
+    const handle = startScheduler(
+      { db, settings: DEFAULT_SETTINGS, ai: nullAiPort(), comparables: localAskingProvider, notify: nullNotifier(), now: () => new Date(), adapters: { olx: lenta } },
+      5_000,
+    );
+    let resolvidas = 0;
+    const p1 = handle.stop().then(() => { resolvidas++; });
+    const p2 = handle.stop().then(() => { resolvidas++; });
+
+    expect(terminou).toBe(false); // o timer é fake; a passada ainda não andou
+
+    await vi.advanceTimersByTimeAsync(1_000);
+    await Promise.all([p1, p2]);
+    expect(terminou).toBe(true);
+    expect(resolvidas).toBe(2);
     expect(nRuns()).toBe(1);
     vi.useRealTimers();
   });
