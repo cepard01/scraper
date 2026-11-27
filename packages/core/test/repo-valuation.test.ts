@@ -7,6 +7,7 @@ import { getOrCreateFingerprint, fingerprintKey } from '../src/db/repo/fingerpri
 import { insertValuation, latestValuationFor } from '../src/db/repo/valuations';
 import { insertOpportunity, listShortlistedRanked } from '../src/db/repo/opportunities';
 import { upsertFromSource, attachDupe } from '../src/db/repo/listings';
+import { extractProduct } from '../src/product';
 import { createMonitor } from '../src/db/repo/monitors';
 import type { ListingInput, ListingStatus, OpportunityMath, ParsedProduct, Valuation } from '../src/types';
 
@@ -49,6 +50,25 @@ describe('fingerprints', () => {
       .toBe('PS4 Slim 1TB (C)');
     expect(getOrCreateFingerprint(db, { category: 'bicicleta', brand: null, model: 'aro 29 mtb', variant: null, grade: 'B', matched: false }).label)
       .toBe('Aro 29 MTB (B)');
+  });
+
+  it('chave canônica funde marca repetida no modelo', () => {
+    const comMarca = extractProduct('Xiaomi Redmi Note 13 Pro 256GB', '');
+    const semMarca = extractProduct('Redmi Note 13 Pro 256GB', '');
+    expect(fingerprintKey(comMarca)).toBe('celular|xiaomi|redmi note 13 pro|256gb|B');
+    expect(fingerprintKey(comMarca)).toBe(fingerprintKey(semMarca));
+    expect(getOrCreateFingerprint(db, comMarca).id).toBe(getOrCreateFingerprint(db, semMarca).id);
+    expect(db.select().from(fingerprints).all()).toHaveLength(1);
+
+    const motorola = extractProduct('Motorola Moto G32 64GB', '');
+    const moto = extractProduct('Moto G32 64GB', '');
+    expect(fingerprintKey(motorola)).toBe(fingerprintKey(moto));
+  });
+
+  it('não remove marca que não é prefixo literal do modelo', () => {
+    expect(fingerprintKey(extractProduct('iPhone 12 128GB', ''))).toBe('celular|apple|iphone 12|128gb|B');
+    expect(fingerprintKey(extractProduct('Samsung Galaxy A54 novo lacrado', '')))
+      .toBe('celular|samsung|galaxy a54|lacrado|A');
   });
 
   it('key não ganha campo fantasma quando um atributo traz barra vertical', () => {
