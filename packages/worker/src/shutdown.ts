@@ -12,8 +12,11 @@ export function makeStop(opts: ShutdownOpts): (signal?: string) => Promise<void>
   return (signal) => {
     if (stopping) return stopping;
     stopping = (async () => {
-      await opts.drainBackground();
+      // Primeiro cancelam-se os ticks e espera-se a passada em voo: é o
+      // scheduler que dispara health checks em background. Drenar antes
+      // deixava um POST entrar no tracker depois do snapshot do drain.
       await opts.handle.stop();
+      await opts.drainBackground();
       opts.close?.();
       opts.log?.(`parado${signal ? ` (${signal})` : ''}.`);
       opts.exit?.(0);
@@ -31,7 +34,11 @@ export function createBackgroundTracker() {
       void work.finally(() => inFlight.delete(work)).catch(() => {});
     },
     async drain(): Promise<void> {
-      await Promise.allSettled([...inFlight]);
+      // O trabalho de fundo pode registrar mais trabalho enquanto o anterior
+      // termina; um snapshot único fecharia o banco com esse segundo em voo.
+      do {
+        await Promise.allSettled([...inFlight]);
+      } while (inFlight.size > 0);
     },
   };
 }

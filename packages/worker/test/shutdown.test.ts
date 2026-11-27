@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createBackgroundTracker, makeStop } from '../src/shutdown';
 
 describe('makeStop', () => {
-  it('espera trabalho de fundo e passada antes de fechar o banco e sair', async () => {
+  it('espera a passada e só depois drena o fundo, antes de fechar o banco e sair', async () => {
     const events: string[] = [];
     let release!: () => void;
     const pass = new Promise<void>((r) => { release = r; });
@@ -22,14 +22,35 @@ describe('makeStop', () => {
 
     const done = stop('SIGTERM');
     await Promise.resolve();
-    expect(events).toEqual(['background', 'scheduler:start']);
+    expect(events).toEqual(['scheduler:start']);
 
     release();
     await done;
 
     expect(events).toEqual([
-      'background', 'scheduler:start', 'scheduler:end', 'sqlite', 'parado (SIGTERM).', 'exit:0',
+      'scheduler:start', 'scheduler:end', 'background', 'sqlite', 'parado (SIGTERM).', 'exit:0',
     ]);
+  });
+
+  it('não sai com trabalho registrado depois que o drain começou', async () => {
+    const tracker = createBackgroundTracker();
+    let done = false;
+    const events: string[] = [];
+    const stop = makeStop({
+      handle: { stop: async () => { events.push('scheduler'); } },
+      drainBackground: async () => {
+        void Promise.resolve().then(() => tracker.track(new Promise<void>((r) => {
+          setTimeout(() => { done = true; r(); }, 0);
+        })));
+        await tracker.drain();
+      },
+      close: () => events.push('sqlite'),
+      exit: () => events.push('exit'),
+    });
+
+    await stop();
+    expect(done).toBe(true);
+    expect(events).toEqual(['scheduler', 'sqlite', 'exit']);
   });
 
   it('sinais repetidos compartilham o mesmo desligamento', async () => {
@@ -67,5 +88,17 @@ describe('createBackgroundTracker', () => {
     expect(drained).toBe(true);
 
     await expect(tracker.drain()).resolves.toBeUndefined();
+  });
+
+  it('drena também trabalho registrado durante o próprio drain', async () => {
+    const tracker = createBackgroundTracker();
+    let lateDone = false;
+    tracker.track(new Promise<void>((r) => setTimeout(r, 0)));
+
+    const waiting = tracker.drain();
+    tracker.track(new Promise<void>((r) => setTimeout(() => { lateDone = true; r(); }, 0)));
+    await waiting;
+
+    expect(lateDone).toBe(true);
   });
 });
