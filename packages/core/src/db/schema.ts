@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { integer, text, real, sqliteTable, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import type { AiTask, AlertAction, Category, Confidence, Cents, GateReason, Grade, ListingStatus, MonitorParams, PurchaseStatus, SourceId, Valuation } from '../types';
+import type { TriageInput } from '../ai-port';
 
 const ts = (name: string) => integer(name, { mode: 'timestamp_ms' });
 
@@ -157,6 +158,15 @@ export const aiCallLog = sqliteTable('ai_call_log', {
   error: text('error'),
   createdAt: ts('created_at').notNull(),
 }, (t) => [index('i_ai_call_task_time').on(t.task, t.createdAt)]);
+
+// Fila postergada por cota/circuito. listingId é a chave: se o mesmo anúncio
+// voltar na passada seguinte, a entrada é atualizada em vez de duplicada.
+export const aiDeferred = sqliteTable('ai_deferred', {
+  listingId: integer('listing_id').primaryKey(),
+  task: text('task').$type<AiTask>().notNull(),
+  payload: text('payload', { mode: 'json' }).$type<TriageInput>().notNull(),
+  createdAt: ts('created_at').notNull(),
+}, (t) => [index('i_ai_deferred_task').on(t.task, t.createdAt)]);
 
 export const dealAlerts = sqliteTable('deal_alert', {
   id: integer('id').primaryKey({ autoIncrement: true }),

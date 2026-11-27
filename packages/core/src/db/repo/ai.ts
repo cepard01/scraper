@@ -1,6 +1,7 @@
-import { and, desc, eq, gte, lt } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, lt, sql } from 'drizzle-orm';
 import type { Db } from '../client';
-import { aiCache, aiCallLog } from '../schema';
+import { aiCache, aiCallLog, aiDeferred } from '../schema';
+import type { TriageInput } from '../../ai-port';
 import type { AiTask } from '../../types';
 
 export function getAiCache(db: Db, key: string): unknown | undefined {
@@ -70,4 +71,43 @@ export function latestAiCalls(db: Db, limit = 20): Array<{
     task: aiCallLog.task, status: aiCallLog.status, attempts: aiCallLog.attempts,
     batchSize: aiCallLog.batchSize, error: aiCallLog.error, createdAt: aiCallLog.createdAt,
   }).from(aiCallLog).orderBy(desc(aiCallLog.id)).limit(limit).all();
+}
+
+// Um payload corrompido no banco não pode derrubar o worker: a fila é best-effort,
+// o alerta determinístico continua saindo sem IA.
+function isTriageInput(value: unknown): value is TriageInput {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Partial<TriageInput>;
+  return typeof v.listingId === 'number' && Number.isFinite(v.listingId)
+    && typeof v.externalId === 'string' && typeof v.title === 'string'
+    && typeof v.askingCents === 'number' && Number.isFinite(v.askingCents);
+}
+
+/** Fila persistida: sobrevive ao restart do worker e à virada do dia. */
+export function listAiDeferred(db: Db): TriageInput[] {
+  return db.select({ payload: aiDeferred.payload }).from(aiDeferred)
+    .orderBy(asc(aiDeferred.createdAt), asc(aiDeferred.listingId)).all()
+    .map((r) => r.payload)
+    .filter(isTriageInput);
+}
+
+export function pushAiDeferred(db: Db, items: TriageInput[]): void {
+  if (items.length === 0) return;
+  const createdAt = new Date();
+  db.insert(aiDeferred).values(items.map((item) => ({
+    listingId: item.listingId, task: 'triage.batch' as const, payload: item, createdAt,
+  }))).onConflictDoUpdate({
+    target: aiDeferred.listingId,
+    // createdAt permanece: quem foi postergado primeiro continua na frente da fila.
+    set: { payload: sql`excluded.payload` },
+  }).run();
+}
+
+export function removeAiDeferred(db: Db, listingIds: number[]): void {
+  if (listingIds.length === 0) return;
+  db.delete(aiDeferred).where(inArray(aiDeferred.listingId, listingIds)).run();
+}
+
+export function countAiDeferred(db: Db): number {
+  return db.select({ listingId: aiDeferred.listingId }).from(aiDeferred).all().length;
 }
