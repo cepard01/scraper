@@ -26,7 +26,8 @@ const RAW_RULES: Record<Category, Rule> = {
   },
   autopeca: {
     include: ['peca', 'para-choque', 'farol', 'lanterna', 'retrovisor', 'radiador', 'alternador',
-      'starter', 'cambio', 'embreagem', 'disco de freio', 'pastilha', 'amortecedor', 'mola', 'bomba', 'injetor',
+      'starter', 'cambio', 'embreagem', 'disco de freio', 'pastilha', 'sensor de abs', 'sensor abs',
+      'amortecedor', 'mola', 'bomba', 'injetor',
       'motor ', 'cabeçote', 'turbina', 'paralampa', 'porta ', 'capô', 'capot', 'grade dianteira', 'bieleta', 'banda'],
     exclude: ['carro completo', 'vendo carro', 'vehicle', 'pneu de carro', 'ipva', 'documentação'],
     weight: 20,
