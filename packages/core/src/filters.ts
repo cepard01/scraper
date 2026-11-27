@@ -2,6 +2,8 @@
 // relógio: o pipeline decide o que fazer com o veredito (contar em run.rejected
 // e nunca converter em alerta).
 
+import { wordRe } from './text';
+
 export function normalizeTitle(text: string): string {
   return text
     .toLowerCase()
@@ -16,7 +18,7 @@ export function passesRequireWords(title: string, words: readonly string[] | und
   const normalized = normalizeTitle(title);
   return words.some((word) => {
     const needle = normalizeTitle(word);
-    return needle.length > 0 && normalized.includes(needle);
+    return needle.length > 0 && wordRe(needle).test(normalized);
   });
 }
 
