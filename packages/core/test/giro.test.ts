@@ -143,6 +143,16 @@ describe('repo/giro', () => {
       .toThrowError(/soldCents/);
   });
 
+  it('taxa de plataforma negativa é recusada: não pode virar receita no P&L', () => {
+    const id = insertPurchase(db, base);
+    expect(() => recordSale(db, {
+      purchaseId: id, soldCents: 100_000, platform: 'olx', platformFeeCents: -5_000,
+      soldAt: D('2026-10-02T12:00:00Z'),
+    }, settings())).toThrowError(/platformFeeCents/);
+    expect(db.select().from(sales).all()).toHaveLength(0);
+    expect(getPurchase(db, id)!.status).toBe('in_stock');
+  });
+
   it('feeFor arredonda o centavo da taxa e é a única origem do valor derivado', () => {
     expect(feeFor(165_000, 'meli', settings())).toBe(26_400);
     expect(feeFor(999, 'meli', settings())).toBe(160);

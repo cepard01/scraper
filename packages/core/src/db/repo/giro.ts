@@ -77,6 +77,7 @@ export function feeFor(soldCents: Cents, platform: string, settings: Settings): 
 
 export function recordSale(db: Db, s: NewSale, settings: Settings): Sale {
   neg('soldCents', s.soldCents);
+  neg('platformFeeCents', s.platformFeeCents ?? 0);
   neg('shippingOutCents', s.shippingOutCents ?? 0);
   neg('otherCostsCents', s.otherCostsCents ?? 0);
 
