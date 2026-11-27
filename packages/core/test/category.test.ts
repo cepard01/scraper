@@ -10,6 +10,11 @@ describe('classifyCategory', () => {
     expect(classifyCategory('Notebook Dell Inspiron i5 8GB 256SSD', '')).toBe('notebook');
   });
 
+  it('empate de peso desempata pelo termo que vem primeiro no titulo', () => {
+    expect(classifyCategory('Notebook Samsung Galaxy Book', '')).toBe('notebook');
+    expect(classifyCategory('iPhone 12 com capa notebook', '')).toBe('celular');
+  });
+
   it('console', () => {
     expect(classifyCategory('PlayStation 4 Slim 1TB', '')).toBe('console');
   });
