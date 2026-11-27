@@ -16,7 +16,7 @@ import type { Db } from './db/client';
 import type { AlertChannel, SearchMonitor, Settings } from './types';
 import { isRejected, type SourceAdapter } from './adapter-contract';
 import { requireWordsVerdict } from './filters';
-import { decideAlert, type AlertDecision } from './alerts';
+import { decideAlert, decideCrossAlert, type AlertDecision } from './alerts';
 import { evaluateDealSignal } from './deal-signal';
 import { deliverDealAlert } from './alert-delivery';
 import { latestDealAlertCents } from './db/repo/alerts';
@@ -130,9 +130,11 @@ export async function runMonitor(deps: PipelineDeps, monitor: SearchMonitor): Pr
       const lastCents = latestDealAlertCents(db, upsert.id);
       // Exceção explícita portada do Scrapelytics: no cold start não existe
       // margem para passar no gate, mas o teto manual do watch autoriza o push.
+      // A exceção vale para a PRIMEIRA cruzada: depois dela valem as mesmas
+      // regras de re-alerta do caminho com mediana (igual/maior e queda mínima).
       const coldStart = !g.passed && g.reason === 'amostra-insuficiente' && signal.basis === 'manual';
       const decision: AlertDecision = coldStart
-        ? { shouldAlert: true, kind: 'novo', dropPct: null, reason: null }
+        ? decideCrossAlert({ askingCents: input.askingCents, lastAlertCents: lastCents })
         : decideAlert({
           listingId: upsert.id, askingCents: input.askingCents,
           gatePassed: g.passed, gateReason: g.reason,

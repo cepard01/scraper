@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  decideAlert, isSilentHours, shouldSendDigest, localHour, localDateKey,
+  decideAlert, decideCrossAlert, isSilentHours, shouldSendDigest, localHour, localDateKey,
   REALERT_MIN_DROP_PCT, DIGEST_HOUR_DEFAULT,
 } from '../src/alerts';
 import type { Confidence } from '../src/types';
@@ -59,6 +59,19 @@ describe('decideAlert', () => {
   it('o limiar de re-alerta e 10%, e ele e inclusivo', () => {
     const d = decideAlert({ ...base, askingCents: 90_000 * (1 - REALERT_MIN_DROP_PCT), lastAlertCents: 90_000 });
     expect(d).toMatchObject({ shouldAlert: true, kind: 'caiu' });
+  });
+});
+
+describe('decideCrossAlert', () => {
+  it('vale para o cold start manual sem inventar gate, confianca ou margem', () => {
+    expect(decideCrossAlert({ askingCents: 200_000, lastAlertCents: null }))
+      .toEqual({ shouldAlert: true, kind: 'novo', dropPct: null, reason: null });
+    expect(decideCrossAlert({ askingCents: 250_000, lastAlertCents: 200_000 }))
+      .toMatchObject({ shouldAlert: false, reason: 'sem-nova-cruzada' });
+    expect(decideCrossAlert({ askingCents: 198_000, lastAlertCents: 200_000 }))
+      .toMatchObject({ shouldAlert: false, reason: 'queda-insuficiente' });
+    expect(decideCrossAlert({ askingCents: 160_000, lastAlertCents: 200_000 }))
+      .toMatchObject({ shouldAlert: true, kind: 'caiu', dropPct: 0.2 });
   });
 });
 

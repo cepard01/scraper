@@ -126,6 +126,26 @@ describe('alerta de negócio no pipeline', () => {
     expect(db.select().from(opportunities).all()[0]!.gateReason).toBe('amostra-insuficiente');
   });
 
+  it('cold start autoriza só a primeira cruzada e mantém as regras de re-alerta', async () => {
+    const monitorId = createMonitor(db, { label: 'q', source: 'olx', query: 'iphone 12', category: 'celular', params: {}, intervalMinutes: 30 });
+    const { port, calls } = notifier();
+    const m = monitor(monitorId, { manualCeilingCents: 450_000, minSamples: 15 });
+    const base = depsOf(adapter([li('cold-again', 200_000)]), port);
+    const at = (cents: number) => ({ ...base, adapter: adapter([li('cold-again', cents)]) });
+
+    await runMonitor(base, m);
+    await runMonitor(at(202_000), m);
+    await runMonitor(at(198_000), m);
+    await runMonitor(at(160_000), m);
+
+    const rows = db.select().from(dealAlerts).all();
+    expect(rows.filter((r) => r.status === 'sent').map((r) => r.alertedAtCents)).toEqual([200_000, 160_000]);
+    expect(rows.filter((r) => r.status === 'suppressed').map((r) => r.reason))
+      .toEqual(['sem-nova-cruzada', 'queda-insuficiente']);
+    expect(calls).toHaveLength(2);
+    expect(calls[1]!.body).toContain('R$ 1.600,00');
+  });
+
   it('sem teto e sem amostra não alerta', async () => {
     const monitorId = createMonitor(db, { label: 'q', source: 'olx', query: 'iphone 12', category: 'celular', params: {}, intervalMinutes: 30 });
     const { port, calls } = notifier();
