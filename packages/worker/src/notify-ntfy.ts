@@ -13,11 +13,12 @@ export const DIGEST_TAGS = ['bar_chart'];
 const pct = (v: number): string => `${Math.round(v * 100)}%`;
 
 // Título de marketplace traz travessão, aspas curvas e emoji. Node/undici recusa
-// header value com code point > 255 antes de qualquer request sair — o POST
-// inteiro virava 'network' e o alerta ficava failed. ntfy entende RFC 2047;
-// codificar só o que precisa mantém o título original legível no celular.
+// header value com code point > 255 OU com controle C0/DEL (\n, \r, NUL...) antes
+// de qualquer request sair — o POST inteiro virava 'network' e o alerta ficava
+// failed. ntfy entende RFC 2047; codificar só o que precisa mantém o título
+// original legível no celular. Tab e latin-1 continuam crus.
 export const encodeHeaderValue = (value: string): string =>
-  /^[\x00-\xFF]*$/.test(value)
+  /^[\t\x20-\x7E\x80-\xFF]*$/.test(value)
     ? value
     : `=?UTF-8?B?${Buffer.from(value, 'utf8').toString('base64')}?=`;
 
