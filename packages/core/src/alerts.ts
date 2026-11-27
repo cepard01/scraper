@@ -58,21 +58,30 @@ export function decideAlert(args: {
   floorMarginPct: number;
   lastAlertCents: Cents | null;
 }): AlertDecision {
-  const no = (reason: string): AlertDecision => ({ shouldAlert: false, kind: null, dropPct: null, reason });
-
-  if (!args.gatePassed) return no(args.gateReason);
-  if (args.confidence === 'none') return no('amostra-insuficiente');
+  if (!args.gatePassed) return noDecision(args.gateReason);
+  if (args.confidence === 'none') return noDecision('amostra-insuficiente');
   if (args.confidence === 'low' && (args.marginPct === null || args.marginPct < 2 * args.floorMarginPct)) {
-    return no('confianca-baixa');
+    return noDecision('confianca-baixa');
   }
+  return decideCrossAlert({ askingCents: args.askingCents, lastAlertCents: args.lastAlertCents });
+}
 
+function noDecision(reason: string): AlertDecision {
+  return { shouldAlert: false, kind: null, dropPct: null, reason };
+}
+
+// O teto manual do cold start não tem amostra para passar no gate, mas ainda
+// precisa das mesmas regras de re-cruzada: igual/maior não reenvia e queda
+// pequena não interrompe o operador. Isolado daqui para os dois caminhos usarem
+// a mesma autoridade.
+export function decideCrossAlert(args: { askingCents: Cents; lastAlertCents: Cents | null }): AlertDecision {
   if (args.lastAlertCents === null) {
     return { shouldAlert: true, kind: 'novo', dropPct: null, reason: null };
   }
-  if (args.askingCents >= args.lastAlertCents) return no('sem-nova-cruzada');
+  if (args.askingCents >= args.lastAlertCents) return noDecision('sem-nova-cruzada');
 
   const dropPct = (args.lastAlertCents - args.askingCents) / args.lastAlertCents;
-  if (dropPct < REALERT_MIN_DROP_PCT) return no('queda-insuficiente');
+  if (dropPct < REALERT_MIN_DROP_PCT) return noDecision('queda-insuficiente');
 
   return { shouldAlert: true, kind: 'caiu', dropPct, reason: null };
 }
