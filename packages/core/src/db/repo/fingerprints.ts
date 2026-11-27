@@ -9,8 +9,22 @@ function seg(value: string | null): string {
   return flat === '' ? '?' : flat;
 }
 
+// `Xiaomi Redmi Note 13 Pro` e `Redmi Note 13 Pro` são o mesmo produto: a marca já
+// está em p.brand, e repeti-la no modelo divide a mediana em duas chaves. Só o
+// prefixo igual à marca canônica é removido — `iphone`/`galaxy` ficam intactos.
+function canonicalModel(p: ParsedProduct): string | null {
+  if (p.model === null || p.brand === null) return p.model;
+  const prefix = `${p.brand} `;
+  return p.model.startsWith(prefix) ? p.model.slice(prefix.length) : p.model;
+}
+
+function canonical(p: ParsedProduct): ParsedProduct {
+  const model = canonicalModel(p);
+  return model === p.model ? p : { ...p, model };
+}
+
 export function fingerprintKey(p: ParsedProduct): string {
-  return [p.category, p.brand, p.model, p.variant, p.grade].map(seg).join('|');
+  return [p.category, p.brand, canonicalModel(p), p.variant, p.grade].map(seg).join('|');
 }
 
 const ACRONYMS: Record<string, string> = {
@@ -43,11 +57,12 @@ function selectFingerprint(db: Db, key: string) {
 }
 
 export function getOrCreateFingerprint(db: Db, p: ParsedProduct): { id: number; key: string; label: string } {
-  const key = fingerprintKey(p);
+  const input = canonical(p);
+  const key = fingerprintKey(input);
   const existing = selectFingerprint(db, key);
   if (existing) return existing;
   db.insert(fingerprints)
-    .values({ key, category: p.category, brand: p.brand, model: p.model, variant: p.variant, grade: p.grade, label: fingerprintLabel(p) })
+    .values({ key, category: input.category, brand: input.brand, model: input.model, variant: input.variant, grade: input.grade, label: fingerprintLabel(input) })
     .onConflictDoNothing({ target: fingerprints.key })
     .run();
   const row = selectFingerprint(db, key);
