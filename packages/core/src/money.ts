@@ -22,7 +22,14 @@ export function parsePriceBRL(input: string, opts: { maxCents?: Cents } = {}): P
   const raw = (input ?? '').trim();
   if (!raw) return { ok: false, reason: 'empty' };
 
-  const lowered = raw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  // HTML e ICU entregam NBSP/U+202F dentro do texto; sem isso "Grátis (vaga)"
+  // não casa o prefixo e vira not-a-price. O sinal tipográfico de menos também
+  // precisa virar '-' antes da checagem de negativo.
+  const lowered = raw.toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s/g, ' ')
+    .replace(/[\u2212\u2013\u2014]/g, '-');
   for (const [word, reason] of REJECT_PREFIX) {
     if (lowered === word || lowered.startsWith(`${word} `)) return { ok: false, reason };
   }
