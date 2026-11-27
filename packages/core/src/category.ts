@@ -104,6 +104,7 @@ export function classifyCategory(title: string, description: string): Category {
   const text = `${stripSymbols(normalizeCase(title))} ${stripSymbols(normalizeCase(description))}`;
   let best: Category = 'outro';
   let bestScore = 0;
+  let bestAt = Number.POSITIVE_INFINITY;
   for (const [category, rule] of Object.entries(CATEGORY_RULES) as Array<[Category, Rule]>) {
     if (category === 'outro') continue;
     const hits = rule.include.filter((x) => boundedIndex(text, x) >= 0).length;
@@ -112,7 +113,11 @@ export function classifyCategory(title: string, description: string): Category {
     const excludeAt = firstMatch(text, rule.exclude);
     if (excludeAt >= 0 && excludeAt < includeAt) continue;
     const score = rule.weight + hits;
-    if (score > bestScore) { bestScore = score; best = category; }
+    // Empate de peso (celular e notebook valem 30): o termo que aparece primeiro
+    // no título identifica melhor o produto do que a ordem de inserção das regras.
+    if (score > bestScore || (score === bestScore && includeAt < bestAt)) {
+      bestScore = score; best = category; bestAt = includeAt;
+    }
   }
   return best;
 }
