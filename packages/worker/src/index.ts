@@ -15,11 +15,12 @@ import { createWorkerAi } from './ai';
 import { printShortlist } from './cli';
 import { createNtfy, formatDigest } from './notify-ntfy';
 import { notifyDegradedSources } from './monitoring';
+import { makeStop } from './shutdown';
 
 try { process.loadEnvFile(); } catch { /* em VPS o EnvironmentFile do systemd já trouxe tudo */ }
 
 const cfg = loadConfig();
-const { db } = openDb(cfg.sqlitePath);
+const { db, sqlite } = openDb(cfg.sqlitePath);
 migrateDb(db);
 seedSettings(db, DEFAULT_SETTINGS);
 const settings = loadSettings(db);
@@ -74,22 +75,35 @@ const handle = startScheduler(deps, 60_000, (summaries) => {
   if (avaliados > 0) console.log(printShortlist(listShortlistedRanked(db, 10)));
 });
 
+let digestInFlight: Promise<void> | null = null;
 const checkDigest = (): void => {
   if (!notifierOn) return;
-  void runDigest({ db, notify, now: () => new Date(), tz: cfg.tz, format: formatDigest })
+  const work = runDigest({ db, notify, now: () => new Date(), tz: cfg.tz, format: formatDigest })
     .then((outcome) => {
       if (outcome.sent) console.log(`digest: ${outcome.rows} itens`);
       else if (outcome.reason === 'sem-itens') console.log('digest: shortlist vazio');
     })
-    .catch(() => console.log('digest: verificacao falhou'));
+    .catch(() => console.log('digest: verificacao falhou'))
+    .finally(() => { if (digestInFlight === work) digestInFlight = null; });
+  digestInFlight = work;
+  void work;
 };
-let stopDigest = (): void => {};
+let stopDigest = async (): Promise<void> => {};
 if (notifierOn) {
   checkDigest();
   const digestTimer = setInterval(checkDigest, 60_000);
-  stopDigest = () => clearInterval(digestTimer);
+  stopDigest = async () => {
+    clearInterval(digestTimer);
+    await digestInFlight;
+  };
 }
 
-const stop = () => { handle.stop(); stopDigest(); console.log('parado.'); process.exit(0); };
-process.on('SIGINT', stop);
-process.on('SIGTERM', stop);
+const stop = makeStop({
+  handle,
+  stopDigest,
+  close: () => sqlite.close(),
+  log: (text) => console.log(text),
+  exit: (code) => process.exit(code),
+});
+process.on('SIGINT', () => void stop('SIGINT'));
+process.on('SIGTERM', () => void stop('SIGTERM'));
