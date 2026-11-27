@@ -15,11 +15,12 @@ import { createWorkerAi } from './ai';
 import { printShortlist } from './cli';
 import { createNtfy, formatDigest } from './notify-ntfy';
 import { notifyDegradedSources } from './monitoring';
+import { createBackgroundTracker, makeStop } from './shutdown';
 
 try { process.loadEnvFile(); } catch { /* em VPS o EnvironmentFile do systemd já trouxe tudo */ }
 
 const cfg = loadConfig();
-const { db } = openDb(cfg.sqlitePath);
+const { db, sqlite } = openDb(cfg.sqlitePath);
 migrateDb(db);
 seedSettings(db, DEFAULT_SETTINGS);
 const settings = loadSettings(db);
@@ -55,6 +56,7 @@ const deps: SchedulerDeps = {
 console.log(`worker ok · sqlite=${cfg.sqlitePath} · fontes=${Object.keys(adapters).join(', ')} · notifier=${notifierOn ? 'ntfy' : 'off'} · ai=${aiOn ? 'omniroute' : 'off'}`);
 console.log(`monitores due agora: ${listDue(db, new Date()).length}`);
 
+const background = createBackgroundTracker();
 const checkHealthAfterPass = async (): Promise<void> => {
   if (!notifierOn) return;
   const sent = await notifyDegradedSources({
@@ -68,7 +70,7 @@ const handle = startScheduler(deps, 60_000, (summaries) => {
   const alertas = summaries.reduce((n, s) => n + s.alerts, 0);
   // Zero novos é exatamente o caso que o health precisa ver: não pode ficar
   // atrás do early-return de "nada aconteceu".
-  void checkHealthAfterPass().catch(() => console.log('health: verificacao falhou'));
+  background.track(checkHealthAfterPass().catch(() => console.log('health: verificacao falhou')));
   if (avaliados === 0 && alertas === 0) return;
   console.log(`ciclo: novos/reprecificados=${avaliados} alertas=${alertas}`);
   if (avaliados > 0) console.log(printShortlist(listShortlistedRanked(db, 10)));
@@ -76,20 +78,28 @@ const handle = startScheduler(deps, 60_000, (summaries) => {
 
 const checkDigest = (): void => {
   if (!notifierOn) return;
-  void runDigest({ db, notify, now: () => new Date(), tz: cfg.tz, format: formatDigest })
+  background.track(runDigest({ db, notify, now: () => new Date(), tz: cfg.tz, format: formatDigest })
     .then((outcome) => {
       if (outcome.sent) console.log(`digest: ${outcome.rows} itens`);
       else if (outcome.reason === 'sem-itens') console.log('digest: shortlist vazio');
     })
-    .catch(() => console.log('digest: verificacao falhou'));
+    .catch(() => console.log('digest: verificacao falhou')));
 };
-let stopDigest = (): void => {};
+let digestTimer: ReturnType<typeof setInterval> | null = null;
 if (notifierOn) {
   checkDigest();
-  const digestTimer = setInterval(checkDigest, 60_000);
-  stopDigest = () => clearInterval(digestTimer);
+  digestTimer = setInterval(checkDigest, 60_000);
 }
 
-const stop = () => { handle.stop(); stopDigest(); console.log('parado.'); process.exit(0); };
-process.on('SIGINT', stop);
-process.on('SIGTERM', stop);
+const stop = makeStop({
+  handle,
+  drainBackground: async () => {
+    if (digestTimer) clearInterval(digestTimer);
+    await background.drain();
+  },
+  close: () => sqlite.close(),
+  log: (text) => console.log(text),
+  exit: (code) => process.exit(code),
+});
+process.on('SIGINT', () => void stop('SIGINT'));
+process.on('SIGTERM', () => void stop('SIGTERM'));

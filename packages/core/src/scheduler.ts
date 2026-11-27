@@ -19,14 +19,20 @@ export async function runPending(deps: SchedulerDeps): Promise<RunSummary[]> {
   return out;
 }
 
+export interface SchedulerHandle {
+  /** Cancela os ticks e resolve quando a passada em voo termina. */
+  stop(): Promise<void>;
+}
+
 export function startScheduler(
   deps: SchedulerDeps,
   tickMs = 30_000,
   onPass?: (summaries: RunSummary[]) => void,
-): { stop: () => void } {
+): SchedulerHandle {
   let busy = false;
   let stopped = false;
-  const loop = async () => {
+  let current: Promise<void> = Promise.resolve();
+  const loop = async (): Promise<void> => {
     if (busy || stopped) return;
     busy = true;
     try {
@@ -34,7 +40,18 @@ export function startScheduler(
       if (summaries.length > 0) onPass?.(summaries);
     } finally { busy = false; }
   };
-  void loop();
-  const timer = setInterval(() => void loop(), tickMs);
-  return { stop: () => { stopped = true; clearInterval(timer); } };
+  const tick = (): Promise<void> => {
+    const work = loop();
+    current = work;
+    return work;
+  };
+  void tick();
+  const timer = setInterval(() => void tick(), tickMs);
+  return {
+    async stop() {
+      stopped = true;
+      clearInterval(timer);
+      await current;
+    },
+  };
 }
