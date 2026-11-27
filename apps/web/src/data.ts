@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import { loadConfig } from '@brique/core/config';
 import { loadSettings } from '@brique/core/db/client-helpers';
 import type { Db } from '@brique/core/db/client';
@@ -48,7 +48,9 @@ export function getDeals(db: Db, limit = 100): DealCard[] {
     const opp = db.select({
       aiVerdict: opportunities.aiVerdict, aiReasons: opportunities.aiReasons,
     }).from(opportunities).where(eq(opportunities.id, row.opportunityId)).get();
-    const alert = listDealAlertsForListing(db, row.listingId)[0];
+    // Digest grava linhas sent com outro canal; sem filtrar, o digest da manhã
+    // mascararia um push de deal que falhou antes. A coluna mostra o deal.
+    const alert = listDealAlertsForListing(db, row.listingId).find((a) => a.channel === 'ntfy') ?? null;
     const prices = db.select({
       askingCents: pricePoints.askingCents, observedAt: pricePoints.observedAt,
     }).from(pricePoints).where(eq(pricePoints.listingId, row.listingId))
@@ -133,13 +135,15 @@ export function getListingDetail(db: Db, listingId: number): ListingDetail | nul
   const listing = getListing(db, listingId);
   if (!listing) return null;
 
+  // Cada repricing cria uma opportunity nova. /deals e o digest usam a de maior
+  // id; o detalhe não pode ficar preso à primeira avaliação do anúncio.
   const opportunity = db.select({
     id: opportunities.id, gatePassed: opportunities.gatePassed, gateReason: opportunities.gateReason,
     score: opportunities.score, breakdown: opportunities.breakdown,
     aiVerdict: opportunities.aiVerdict, aiReasons: opportunities.aiReasons,
     valuationId: opportunities.valuationId,
   }).from(opportunities).where(eq(opportunities.listingId, listingId))
-    .orderBy(opportunities.id).limit(1).get() ?? null;
+    .orderBy(desc(opportunities.id)).limit(1).get() ?? null;
 
   const valuation = opportunity?.valuationId
     ? db.select({

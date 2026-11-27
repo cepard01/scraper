@@ -10,7 +10,7 @@ import { pushAiDeferred } from '@brique/core/db/repo/ai';
 import { createMonitor } from '@brique/core/db/repo/monitors';
 import { insertPurchase, recordSale } from '@brique/core/db/repo/giro';
 import {
-  aiCallLog, comparableRefs, opportunities, pricePoints, runs, valuations,
+  aiCallLog, comparableRefs, dealAlerts, opportunities, pricePoints, runs, valuations,
 } from '@brique/core/db/schema';
 import type { ListingInput } from '@brique/core/types';
 import { getDeals, getHome, getInventory, getListingDetail, getPnl, getSettingsView } from '../src/data';
@@ -94,6 +94,38 @@ describe('queries das rotas', () => {
       alertStatus: 'sent', priceCount: 3, lastPriceCents: 240_000, favorite: false,
     });
     expect(deals[0]!.aiReasons).toEqual(['sem indício de golpe']);
+  });
+
+  it('/deals não deixa digest mascarar falha do push ntfy', () => {
+    const { a, opportunityId } = seed();
+    db.update(dealAlerts).set({ status: 'failed', reason: 'http 500' })
+      .where(eq(dealAlerts.opportunityId, opportunityId)).run();
+    insertDealAlert(db, {
+      opportunityId, listingId: a.id, channel: 'digest', alertedAtCents: 250_000,
+      status: 'sent', createdAt: T2,
+    });
+
+    expect(getDeals(db)[0]).toMatchObject({ alertStatus: 'failed', alertReason: 'http 500' });
+  });
+
+  it('/listing/[id] mostra a avaliação mais recente, a mesma do /deals', () => {
+    const { a } = seed();
+    const newer = insertOpportunity(db, a.id, {
+      askingCents: 240_000, fairGrossCents: 270_000, netRealizableCents: 220_000, costsInCents: 30_000,
+      marginCents: 20_000, marginPct: 0.08, expectedPerDayCents: 2_000, liquidityDays: 10,
+      score: 0.91, breakdown: {
+        profitFactor: 1, liquidityFactor: 0.5, confidenceFactor: 1, freshnessFactor: 0.75,
+      },
+    }, { valuationId: null, gatePassed: true, gateReason: 'ok', createdAt: T2 });
+    db.update(opportunities).set({ aiVerdict: 'veto', aiReasons: ['golpe'] })
+      .where(eq(opportunities.id, newer)).run();
+
+    expect(getListingDetail(db, a.id)!.opportunity).toMatchObject({
+      id: newer, score: 0.91, aiVerdict: 'veto', aiReasons: ['golpe'],
+    });
+    expect(getDeals(db)[0]).toMatchObject({
+      opportunityId: newer, score: 0.91, aiVerdict: 'veto',
+    });
   });
 
   it('/listing/[id] traz fingerprint, comparáveis, série e compra', () => {
