@@ -91,8 +91,22 @@ function storageSlug(t: string): string | null {
   return best ? `${best.n}${best.unit}` : null;
 }
 
+// Grafias diferentes da mesma peça precisam da mesma variante: o slug entra na
+// chave do fingerprint e separaria a mediana sem necessidade.
 const AUTO_PART_ALIASES: Record<string, string> = {
   'sensor de abs': 'sensor abs',
+  'bomba dagua': 'bomba agua',
+  'bomba de agua': 'bomba agua',
+  'bomba de gasolina': 'bomba gasolina',
+  'coxim do motor': 'coxim motor',
+  'farol de milha': 'farol milha',
+  'correia dentada': 'correia distribuicao',
+  'correia de distribuicao': 'correia distribuicao',
+  'tensor de correia': 'tensor correia',
+  'pivo de suspensao': 'pivo suspensao',
+  'vidro para brisa': 'parabrisa',
+  'para brisa': 'parabrisa',
+  'vela de ignicao': 'vela ignicao',
 };
 
 const AUTO_PARTS = CATEGORY_RULES.autopeca.include
