@@ -125,10 +125,25 @@ function firstMatch(text: string, words: string[]): number {
   return idx;
 }
 
+function escapeRe(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+}
+
+/** Alias casa como palavra: 'edge' não pode nascer de 'knowledge'. */
+function aliasRe(alias: string): RegExp {
+  const parts = alias.trim().split(/\s+/);
+  const tail = parts[parts.length - 1]!;
+  // 'moto g32' e 'moto e20' são grafias válidas: um alias terminado em letra
+  // única ainda pode continuar com dígito do modelo.
+  const end = /^\p{L}$/u.test(tail) ? '(?![\\p{L}])' : '(?![\\p{L}\\p{N}])';
+  const body = parts.map(escapeRe).join('\\s+');
+  return new RegExp(`(?<![\\p{L}\\p{N}])${body}${end}`, 'u');
+}
+
 export function matchBrand(text: string, category: Category): string | null {
   const t = ` ${stripSymbols(normalizeCase(text))} `;
   for (const def of BRANDS_BY_CATEGORY[category] ?? []) {
-    if (def.aliases.some((a) => t.includes(a))) return def.canonical;
+    if (def.aliases.some((a) => aliasRe(a).test(t))) return def.canonical;
   }
   return null;
 }

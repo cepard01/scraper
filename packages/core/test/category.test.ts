@@ -71,5 +71,11 @@ describe('matchBrand', () => {
   it('alias terminado em espaco casa mesmo colado em pontuacao', () => {
     expect(matchBrand('smartphone (lg) g8x', 'celular')).toBe('lg');
     expect(matchBrand('bike aro 29 (gt) shimano', 'bicicleta')).toBe('gt');
+    expect(matchBrand('celular mi 9t', 'celular')).toBe('xiaomi');
+  });
+
+  it('nao inventa marca a partir de substring dentro de outra palavra', () => {
+    expect(matchBrand('Celular usado knowledge 128GB', 'celular')).toBeNull();
+    expect(matchBrand('Celular Samsung A54', 'celular')).toBe('samsung');
   });
 });
