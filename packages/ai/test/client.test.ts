@@ -183,13 +183,21 @@ describe('createAi.triage', () => {
     expect(blocked.get(2)?.reasons).toEqual(['ia-budget']);
     expect(deferred.list().map((i) => i.listingId)).toEqual([2]);
 
-    const secondPost = postFrom([result(200, valid([2, 3]))]);
-    const second = createAi(base(secondPost.post, { ...ports, deferred, limits: { 'triage.batch': 2 } }));
+    const secondPost = postFrom([result(200, valid([3])), result(200, valid([2]))]);
+    const second = createAi(base(secondPost.post, { ...memoryPorts(), deferred, limits: { 'triage.batch': 2 } }));
     const out = await second.triage([item(3)]);
 
-    expect(out.get(2)?.verdict).toBe('pass');
+    // O item 2 não voltou na passada: ninguém leria o veredito dele, então ele não
+    // pode entrar no lote pago nem sair da fila.
     expect(out.get(3)?.verdict).toBe('pass');
+    expect(out.has(2)).toBe(false);
     expect(secondPost.calls).toHaveLength(1);
+    expect(JSON.parse(secondPost.calls[0]!.body).messages[1].content).not.toContain('"listingId":2');
+    expect(deferred.list().map((i) => i.listingId)).toEqual([2]);
+    expect(second.queued).toBe(1);
+
+    await second.triage([item(2)]);
+    expect(secondPost.calls).toHaveLength(2);
     expect(deferred.list()).toEqual([]);
     expect(second.queued).toBe(0);
   });
