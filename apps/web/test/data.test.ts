@@ -164,7 +164,24 @@ describe('queries das rotas', () => {
     const on = getHome(db, 'America/Sao_Paulo', 10, {
       ntfyConfigured: true, meliConfigured: false, omnirouteConfigured: true,
     });
-    expect(on.ai).toMatchObject({ configured: true, cacheHitPct: 0.5, calls: 1, paused: true });
+    // 12 itens pagos num POST + 1 item do cache: a taxa é por item auditado.
+    expect(on.ai).toMatchObject({ configured: true, cacheHitPct: 1 / 13, calls: 1, paused: true });
+  });
+
+  it('/ mede cacheHitPct por item auditado, não por requisição', () => {
+    seedSettings(db, DEFAULT_SETTINGS);
+    const now = new Date();
+    expect(getHome(db, 'America/Sao_Paulo').ai.cacheHitPct).toBeNull();
+
+    db.insert(aiCallLog).values([
+      { task: 'triage.batch', status: 'ok', attempts: 1, batchSize: 1, createdAt: now },
+    ]).run();
+    expect(getHome(db, 'America/Sao_Paulo').ai.cacheHitPct).toBe(0);
+
+    db.insert(aiCallLog).values([
+      { task: 'triage.batch', status: 'cache-hit', attempts: 0, batchSize: 12, createdAt: now },
+    ]).run();
+    expect(getHome(db, 'America/Sao_Paulo').ai).toMatchObject({ cacheHitPct: 12 / 13, calls: 1 });
   });
 
   it('/settings conta a fila postergada sem depender de .env', () => {

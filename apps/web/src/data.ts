@@ -94,10 +94,16 @@ const NO_CONFIG: ConfigStatus = { ntfyConfigured: false, meliConfigured: false, 
 export function getHome(db: Db, tz: string, limit = 10, config: ConfigStatus = NO_CONFIG): HomeData {
   const sources = Array.from(new Set(listMonitors(db).map((m) => m.source)));
   const stats = aiStatsSince(db, new Date(Date.now() - 86_400_000));
+  const rows = (status: 'ok' | 'cache-hit') => stats.filter((s) => s.status === status);
   const sum = (status: 'ok' | 'cache-hit') =>
-    stats.filter((s) => s.status === status).reduce((n, s) => n + s.total, 0);
+    rows(status).reduce((n, s) => n + s.total, 0);
+  // `total` conta linhas do log (uma por lote de até 12); `items` conta anúncios.
+  // A taxa de acerto do cache é por item auditado, não por requisição.
+  const sumItems = (status: 'ok' | 'cache-hit') =>
+    rows(status).reduce((n, s) => n + s.items, 0);
   const calls = sum('ok');
-  const hits = sum('cache-hit');
+  const audited = sumItems('ok') + sumItems('cache-hit');
+  const hits = sumItems('cache-hit');
 
   return {
     summary: pnlSummary(db, { tz }),
@@ -106,7 +112,7 @@ export function getHome(db: Db, tz: string, limit = 10, config: ConfigStatus = N
     ai: {
       configured: config.omnirouteConfigured,
       calls,
-      cacheHitPct: calls + hits > 0 ? hits / (calls + hits) : null,
+      cacheHitPct: audited > 0 ? hits / audited : null,
       paused: loadSettings(db).aiPaused,
     },
   };
