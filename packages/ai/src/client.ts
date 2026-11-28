@@ -97,6 +97,7 @@ export function createAi(opts: AiOptions): AiClient {
   let calls = 0;
   let cacheHits = 0;
   let paused = false;
+  let stateEmitted = false;
 
   function remaining(task: AiTask): number {
     if (!log) return limits[task];
@@ -112,7 +113,10 @@ export function createAi(opts: AiOptions): AiClient {
     const now = opts.clock().getTime();
     const open = Object.values(circuitOpenUntil).some((until) => until !== undefined && until > now);
     const next = open || remaining('triage.batch') === 0;
-    if (next !== paused) {
+    // A primeira emissão acontece mesmo quando next === false: sem ela um restart
+    // com cota nova deixaria o setting aiPaused=true persistido da vida anterior.
+    if (!stateEmitted || next !== paused) {
+      stateEmitted = true;
       paused = next;
       opts.onState?.(state());
     }
@@ -252,6 +256,7 @@ export function createAi(opts: AiOptions): AiClient {
     return { kind: 'answered', parsed };
   }
 
+  syncState();
   return {
     get calls() { return calls; },
     get cacheHits() { return cacheHits; },
