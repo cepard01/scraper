@@ -203,6 +203,18 @@ describe('core/pnl', () => {
     expect(s.revenueCents).toBe(100_000);
   });
 
+  it('pnlSummary filtra por monthKey na tz, inclusive em DST a meia-noite', () => {
+    const tz = 'America/New_York';
+    const soldAt = D('2026-11-01T04:30:00Z'); // 00:30 local; monthKey já é 2026-11
+    const a = buy({ label: 'a' });
+    sell(a, { soldAt });
+
+    expect(monthKey(soldAt, tz)).toBe('2026-11');
+    expect(pnlSummary(db, { month: '2026-10', tz }).soldCount).toBe(0);
+    expect(pnlSummary(db, { month: '2026-11', tz }).soldCount).toBe(1);
+    expect(pnlSummary(db, { month: '2026-11', tz }).byMonth[0]!.month).toBe('2026-11');
+  });
+
   it('stalePurchases usa > metaStaleDays e ignora vendido', () => {
     buy({ label: 'encalhado', boughtAt: D('2026-10-01T12:00:00Z') });
     buy({ label: 'novo', boughtAt: D('2026-10-31T12:00:00Z') });
