@@ -8,10 +8,11 @@ import { runDigest } from '@brique/core/digest';
 import { nullNotifier } from '@brique/core/notify-port';
 import type { SourceAdapter } from '@brique/core/adapter-contract';
 import type { SourceId } from '@brique/core/types';
-import { createHttp, createHttpPost } from '@brique/scrapers/http';
+import { createHttp } from '@brique/scrapers/http';
 import { createOlxAdapter } from '@brique/scrapers/olx/adapter';
 import { createMeliAdapter } from '@brique/scrapers/meli/adapter';
 import { createWorkerAi } from './ai';
+import { createWorkerPosts } from './posts';
 import { printShortlist } from './cli';
 import { createNtfy, formatDigest } from './notify-ntfy';
 import { notifyDegradedSources } from './monitoring';
@@ -40,13 +41,13 @@ if (meli.available) adapters.meli = meli;
 
 // ntfy é o único transporte. Sem tópico o worker segue rodando e a entrega é
 // registrada como failed — nunca como sucesso fingido.
-const post = createHttpPost({ timeoutMs: 10_000, maxAttempts: 2 });
+const { post, postAi } = createWorkerPosts();
 const notifierOn = cfg.ntfy.topic !== null;
 const notify = notifierOn
   ? createNtfy({ post, baseUrl: cfg.ntfy.baseUrl, topic: cfg.ntfy.topic })
   : nullNotifier();
 
-const { ai, configured: aiOn } = createWorkerAi({ db, settings, post, omniRoute: cfg.omniRoute });
+const { ai, configured: aiOn } = createWorkerAi({ db, settings, post: postAi, omniRoute: cfg.omniRoute });
 
 const deps: SchedulerDeps = {
   db, settings, adapters, ai, comparables: localAskingProvider,
