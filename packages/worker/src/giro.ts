@@ -85,17 +85,6 @@ function parseId(flag: string, raw: string): { id: number } | { error: string } 
   return { id };
 }
 
-function startOfMonthUtc(year: number, monthIndex: number, tz: string): Date {
-  const guess = new Date(Date.UTC(year, monthIndex, 1, 12));
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
-  }).formatToParts(guess);
-  const get = (type: string): number => Number(parts.find((p) => p.type === type)!.value);
-  const wall = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second'));
-  return new Date(Date.UTC(year, monthIndex, 1) - (wall - guess.getTime()));
-}
-
 const PCT = new Intl.NumberFormat('pt-BR', { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const DECIMAL = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
@@ -244,19 +233,12 @@ function pnl(argv: string[], deps: GiroDeps): GiroResult {
     category = categoryRaw;
   }
 
-  let from: Date | undefined;
-  let to: Date | undefined;
   const month = parsed.flags.month;
-  if (month !== undefined) {
-    const m = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(month);
-    if (!m) return { code: 1, out: '', err: `erro: --month invalido "${month}"; use YYYY-MM` };
-    const year = Number(m[1]);
-    const monthIndex = Number(m[2]) - 1;
-    from = startOfMonthUtc(year, monthIndex, deps.tz);
-    to = new Date(startOfMonthUtc(year, monthIndex + 1, deps.tz).getTime() - 1);
+  if (month !== undefined && !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+    return { code: 1, out: '', err: `erro: --month invalido "${month}"; use YYYY-MM` };
   }
 
-  const s = pnlSummary(deps.db, { from, to, tz: deps.tz, category });
+  const s = pnlSummary(deps.db, { month, tz: deps.tz, category });
 
   return {
     code: 0,
