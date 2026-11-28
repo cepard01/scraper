@@ -249,12 +249,10 @@ export function createAi(opts: AiOptions): AiClient {
     async triage(items: TriageInput[]): Promise<Map<number, TriageVerdict>> {
       if (items.length === 0) return new Map();
 
-      // Itens vindos da fila e itens novos com o mesmo listingId são a mesma
-      // observação: a versão nova (do passo atual) ganha.
-      const merged = new Map<number, TriageInput>();
-      for (const pending of deferred.list()) merged.set(pending.listingId, pending);
-      for (const item of items) merged.set(item.listingId, item);
-      const queue = [...merged.values()];
+      // A fila é memória do que não coube em passadas anteriores, não entrada desta.
+      // Só os itens que o monitor trouxe agora têm destino para o veredito: o pipeline
+      // lê o mapa pelos ids da passada. Um item ausente fica na fila, sem POST pago.
+      const queue = [...new Map(items.map((i) => [i.listingId, i])).values()];
 
       const out = new Map<number, TriageVerdict>();
       const misses: TriageInput[] = [];

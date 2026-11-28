@@ -184,7 +184,7 @@ describe('createAi.triage', () => {
     expect(deferred.list().map((i) => i.listingId)).toEqual([2]);
 
     const secondPost = postFrom([result(200, valid([3])), result(200, valid([2]))]);
-    const second = createAi(base(secondPost.post, { ...ports, deferred, limits: { 'triage.batch': 2 } }));
+    const second = createAi(base(secondPost.post, { ...memoryPorts(), deferred, limits: { 'triage.batch': 2 } }));
     const out = await second.triage([item(3)]);
 
     // O item 2 não voltou na passada: ninguém leria o veredito dele, então ele não
