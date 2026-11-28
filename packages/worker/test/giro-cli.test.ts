@@ -6,6 +6,7 @@ import { getOrCreateFingerprint } from '@brique/core/db/repo/fingerprints';
 import { upsertFromSource } from '@brique/core/db/repo/listings';
 import { insertValuation } from '@brique/core/db/repo/valuations';
 import { runGiroCommand, type GiroDeps } from '../src/giro';
+import { monthKey } from '@brique/core/pnl';
 import type { ListingInput, ParsedProduct, Valuation } from '@brique/core';
 
 const TZ = 'America/Sao_Paulo';
@@ -173,6 +174,24 @@ describe('giro CLI: pnl', () => {
     expect(out).toContain('receita: R$ 1.500,00');
     expect(out).toContain('vendas: 1');
     expect(out).not.toContain('2.000,00');
+  });
+
+  it('mes na tz respeita venda logo apos DST encerrada a meia-noite', () => {
+    const tz = 'America/New_York';
+    const ny = (now: Date): GiroDeps => ({ ...deps(now), tz });
+    const soldAt = D('2026-11-01T04:30:00Z'); // 00:30 de 1º/11, já no horário de inverno
+
+    expect(monthKey(soldAt, tz)).toBe('2026-11');
+    expect(runGiroCommand(['buy', 'Item', '--paid', '100', '--category', 'outro'], ny(D('2026-10-01T12:00:00Z'))).code).toBe(0);
+    expect(runGiroCommand(['sell', '1', '--sold', '200', '--platform', 'olx'], ny(soldAt)).code).toBe(0);
+
+    const outubro = runGiroCommand(['pnl', '--month', '2026-10'], ny(soldAt)).out;
+    const novembro = runGiroCommand(['pnl', '--month', '2026-11'], ny(soldAt)).out;
+
+    expect(outubro).toContain('vendas: 0');
+    expect(outubro).toContain('receita: R$ 0,00');
+    expect(novembro).toContain('vendas: 1');
+    expect(novembro).toContain('receita: R$ 200,00');
   });
 
   it('mes invalido e argumento posicional sao recusados', () => {
