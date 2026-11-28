@@ -124,6 +124,11 @@ export function createAi(opts: AiOptions): AiClient {
       task: 'triage.batch', status: 'ok', attempts, batchSize,
       cacheKey: key, createdAt: opts.clock(),
     });
+  }
+
+  // Um POST que voltou 200 não é sufficiente para fechar o circuito: o reparo pode
+  // ter falhado na mesma requisição. Só um veredito obtido cura as falhas.
+  function heal(): void {
     failures['triage.batch'] = 0;
     delete circuitOpenUntil['triage.batch'];
   }
@@ -218,6 +223,7 @@ export function createAi(opts: AiOptions): AiClient {
     spend(batch.length, key, first.attempts);
 
     let parsed = parseVerdicts(first.text, expected);
+    let repairedText: string | null = null;
     if (!parsed && remaining('triage.batch') > 0) {
       const repair = await call([
         ...messages,
@@ -225,10 +231,16 @@ export function createAi(opts: AiOptions): AiClient {
       ]);
       if (repair.ok) {
         spend(batch.length, key, repair.attempts);
+        repairedText = repair.text;
         parsed = parseVerdicts(repair.text, expected);
+      } else {
+        // O reparo também é uma chamada paga e uma falha real do gateway; sem isso
+        // três quedas seguidas ali nunca abriam o circuito.
+        fail(repair.error, first.attempts + repair.attempts);
       }
     }
-    if (!parsed) parsed = regexVerdicts(first.text, expected);
+    // A escada é zod → reparo → regex, sempre sobre o texto da última resposta paga.
+    if (!parsed) parsed = (repairedText && regexVerdicts(repairedText, expected)) || regexVerdicts(first.text, expected);
     if (!parsed) {
       log?.append({
         task: 'triage.batch', status: 'unparsed', attempts: first.attempts,
@@ -236,6 +248,7 @@ export function createAi(opts: AiOptions): AiClient {
       });
       return { kind: 'unparsed' };
     }
+    heal();
     return { kind: 'answered', parsed };
   }
 
