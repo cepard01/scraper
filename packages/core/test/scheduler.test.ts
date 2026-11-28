@@ -107,6 +107,43 @@ describe('startScheduler', () => {
     vi.useRealTimers();
   });
 
+  it('stop aguarda a passada em voo mesmo com ticks descartados por busy', async () => {
+    vi.useRealTimers();
+    let liberar: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => { liberar = resolve; });
+    let buscas = 0;
+    let terminou = false;
+    const lenta: SourceAdapter = {
+      id: 'olx',
+      parserVersion: 'olx-1',
+      async health() { return { ok: true }; },
+      async search() { buscas++; await gate; terminou = true; return []; },
+      async fetchOne() { throw new Error('nao usado'); },
+      toListingInput() { throw new Error('nao usado'); },
+    };
+    createMonitor(db, { label: 'o', source: 'olx', query: 'o', category: null, params: {}, intervalMinutes: 30 });
+    const handle = startScheduler(
+      { db, settings: DEFAULT_SETTINGS, ai: nullAiPort(), comparables: localAskingProvider, notify: nullNotifier(), now: () => new Date(), adapters: { olx: lenta } },
+      5,
+    );
+
+    await new Promise<void>((resolve) => setTimeout(resolve, 30));
+    expect(buscas).toBe(1); // os outros ticks foram engolidos por busy
+
+    let resolvido = false;
+    const parando = handle.stop().then(() => { resolvido = true; });
+    await new Promise<void>((resolve) => setTimeout(resolve, 20));
+    expect(resolvido).toBe(false); // stop nao pode terminar antes da busca
+    expect(terminou).toBe(false);
+
+    liberar!();
+    await parando;
+    expect(resolvido).toBe(true);
+    expect(terminou).toBe(true);
+    expect(buscas).toBe(1);
+    expect(nRuns()).toBe(1);
+  });
+
   it('stop aguarda a passada em voo e pode ser chamado mais de uma vez', async () => {
     let terminou = false;
     const lenta: SourceAdapter = {
