@@ -10,7 +10,10 @@ const combos = loadCombos();
 describe('createWorkerPosts', () => {
   it('ntfy repete no transporte; IA deixa todo retry para packages/ai', async () => {
     let fetches = 0;
-    const fetchImpl: FetchLike = async () => { fetches++; return { status: 200, body: '{}', json: () => ({}) }; };
+    const fetchImpl: FetchLike = async () => {
+      fetches++;
+      return { status: fetches === 1 ? 429 : 200, body: '{}', json: () => ({}) };
+    };
     const { post, postAi } = createWorkerPosts({ fetchImpl, baseDelayMs: 0 });
 
     await post('http://gateway/ntfy', '{}');
