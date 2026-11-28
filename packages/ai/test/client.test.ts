@@ -144,6 +144,42 @@ describe('createAi.triage', () => {
     expect(broken.calls).toHaveLength(2);
   });
 
+  it('regex do reparo aproveita o objeto que o zod recusou por reasons fora do tipo', async () => {
+    const { post, calls } = postFrom([
+      result(200, 'lixo sem json'),
+      result(200, '{"verdicts":[{"listingId":2,"verdict":"veto","reasons":"foto quebrada"}]}'),
+    ]);
+    const ai = createAi(base(post, { maxAttempts: 1 }));
+    const out = await ai.triage([item(1), item(2)]);
+
+    expect(calls).toHaveLength(2); // pagou o reparo
+    expect(out.get(2)?.verdict).toBe('veto'); // e não jogou a resposta fora
+    expect(out.get(2)?.reasons).toEqual([]);
+    expect(out.get(1)).toEqual({ verdict: 'unavailable', reasons: [] });
+  });
+
+  it('falha de rede no reparo conta para o circuito e para o log', async () => {
+    let now = NOW.getTime();
+    let n = 0;
+    const post: HttpPost = async () => {
+      n++;
+      return n % 2 === 1 ? result(200, 'lixo') : result(429, 'rate');
+    };
+    const ports = memoryPorts();
+    const ai = createAi(base(post, { ...ports, maxAttempts: 1, clock: () => new Date(now) }));
+    const one = [item(1)];
+
+    for (let k = 0; k < 3; k++) await ai.triage(one);
+    expect(n).toBe(6);
+    expect(ai.state().circuitOpenUntil['triage.batch']).toBe(now + 900_000);
+    expect(ai.paused).toBe(true);
+    expect(ports.entries.filter((e) => e.status === 'failed').map((e) => e.attempts)).toEqual([2, 2, 2]);
+
+    const antes = n;
+    await ai.triage(one);
+    expect(n).toBe(antes);
+  });
+
   it('429 vira retry com jitter e não derruba a triagem', async () => {
     const { post, calls } = postFrom([result(429, 'rate'), result(200, valid([1]))]);
     const ports = memoryPorts();
