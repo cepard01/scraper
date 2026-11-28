@@ -41,6 +41,9 @@ export function startScheduler(
     } finally { busy = false; }
   };
   const tick = (): Promise<void> => {
+    // Um tick engolido por busy (ou depois de stop) ja resolveu; substituir `current` por ele
+    // faria `stop()` retornar antes da passada em voo terminar.
+    if (busy || stopped) return current;
     const work = loop();
     current = work;
     return work;
