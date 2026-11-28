@@ -70,6 +70,27 @@ describe('createWorkerAi', () => {
     expect(loadSettings(db).aiPaused).toBe(true);
   });
 
+  it('restart com cota disponível limpa aiPaused persistido', async () => {
+    const { db, settings } = base();
+    const { post } = postOf(answer);
+    const omniRoute = { baseUrl: 'http://127.0.0.1:20128/v1', apiKey: 'teste' };
+
+    const esgotado = createWorkerAi({
+      db,
+      settings: { ...settings, aiDailyLimits: { ...settings.aiDailyLimits, 'triage.batch': 0 } },
+      post, omniRoute, clock: () => NOW,
+    });
+    expect(loadSettings(db).aiPaused).toBe(true);
+    expect((esgotado.ai as unknown as { paused: boolean }).paused).toBe(true);
+
+    const reiniciado = createWorkerAi({ db, settings, post, omniRoute, clock: () => NOW });
+
+    expect(loadSettings(db).aiPaused).toBe(false);
+    expect((reiniciado.ai as unknown as { paused: boolean }).paused).toBe(false);
+    await reiniciado.ai.triage([item]);
+    expect(loadSettings(db).aiPaused).toBe(false);
+  });
+
   it('fila postergada sobrevive ao restart do worker', async () => {
     const { db, settings } = base();
     const firstPost = postOf(answer);
