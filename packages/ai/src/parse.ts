@@ -56,8 +56,10 @@ export function regexVerdicts(text: string, expected: number[]): ParsedVerdicts 
   const objects = text.match(/\{[^{}]*\}/g) ?? [];
   let found = 0;
   for (const chunk of objects) {
-    const id = /\b(?:listingId|listing_id)\s*:\s*(\d+)/.exec(chunk)?.[1];
-    const verdict = /\bverdict\s*:\s*"(pass|veto|unavailable)"/.exec(chunk)?.[1];
+    // Chaves vêm entre aspas num JSON quase válido; o degrau de regex precisa ler
+    // esse objeto também, não só o formato `{listingId: 2, verdict: "veto"}`.
+    const id = /["']?(?:listingId|listing_id)["']?\s*:\s*(\d+)/.exec(chunk)?.[1];
+    const verdict = /["']?verdict["']?\s*:\s*["']?(pass|veto|unavailable)/.exec(chunk)?.[1];
     if (!id || !verdict || !out.has(Number(id))) continue;
     const reasons = /\[([^\]]*)\]/.exec(chunk)?.[1]
       ?.split(',').map((s) => s.trim().replace(/^["']|["']$/g, '')).filter((s) => s.length > 0) ?? [];

@@ -124,6 +124,11 @@ export function createAi(opts: AiOptions): AiClient {
       task: 'triage.batch', status: 'ok', attempts, batchSize,
       cacheKey: key, createdAt: opts.clock(),
     });
+  }
+
+  // Um POST que voltou 200 não é sufficiente para fechar o circuito: o reparo pode
+  // ter falhado na mesma requisição. Só um veredito obtido cura as falhas.
+  function heal(): void {
     failures['triage.batch'] = 0;
     delete circuitOpenUntil['triage.batch'];
   }
@@ -243,6 +248,7 @@ export function createAi(opts: AiOptions): AiClient {
       });
       return { kind: 'unparsed' };
     }
+    heal();
     return { kind: 'answered', parsed };
   }
 
